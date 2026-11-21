@@ -14,9 +14,18 @@ struct InputVolumeControl: View {
             if !compact {
                 Text("入力音量")
             }
-            Image(systemName: model.inputVolume.isMuted ? "mic.slash" : "mic")
-                .foregroundStyle(.secondary)
-                .help("入力音量（0 でミュート）")
+            let muted = model.inputVolume.isMuteActive
+            Button {
+                model.inputVolume.toggleMute()
+            } label: {
+                Image(systemName: muted ? "mic.slash.fill" : "mic.fill")
+                    .foregroundStyle(muted ? Color.red : Color.secondary)
+                    .frame(width: 16)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!model.inputVolume.isSettable)
+            .help(muted ? "ミュートを解除して元の音量に戻す" : "ミュートする")
+            .accessibilityLabel(muted ? "ミュート解除" : "ミュート")
             // 無段階。目盛り（0%, 17%, 33%, 50%, 67%, 83%, 100%）の近くでは吸着する
             Slider(value: $model.inputVolumeValue, in: 0...1) {
                 Text("入力音量")
@@ -24,6 +33,8 @@ struct InputVolumeControl: View {
                 SliderTickContentForEach(MonitorModel.inputVolumeTicks, id: \.self) { value in
                     SliderTick(value)
                 }
+            } onEditingChanged: { isEditing in
+                model.inputVolume.editingChanged(isEditing)
             }
             .labelsHidden()
             .frame(maxWidth: compact ? .infinity : 260)

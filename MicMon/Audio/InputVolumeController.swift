@@ -21,7 +21,13 @@ final class InputVolumeController {
     /// ミュートを変更できる要素。マスターがあればそれだけ。空ならミュートなし（0 は最小ゲイン）。
     @ObservationIgnored private var muteElements: [AudioObjectPropertyElement] = []
     @ObservationIgnored private var listeners: [CoreAudioHAL.PropertyListener] = []
+    /// ミュートする直前の音量。解除するときに音量が 0 ならこの値に戻す。
+    private var volumeBeforeMute: Float?
+    /// スライダーのドラッグを始めたときの音量。
+    @ObservationIgnored private var volumeAtEditStart: Float?
 
+    /// ミュート前の音量がわからないときに戻す音量。
+    private static let defaultRestoreVolume: Float = 0.5
     private static let logger = Logger(subsystem: "MicMon", category: "InputVolume")
 
     /// 対象デバイスを切り替える。同じデバイスなら何もしない。
@@ -52,12 +58,66 @@ final class InputVolumeController {
         Self.logger.info("Device \(deviceID): volume elements \(self.elements, privacy: .public), settable \(self.isSettable), mute elements \(self.muteElements, privacy: .public)")
     }
 
+    /// スライダーの操作の開始と終了（`Slider` の `onEditingChanged`）。
+    func editingChanged(_ isEditing: Bool) {
+        volumeAtEditStart = isEditing ? volume : nil
+    }
+
+    /// ミュートボタンの状態。ミュートを持たないデバイスでは、ボタンで 0 にした状態をミュート扱いにする。
+    var isMuteActive: Bool {
+        isMuted || (muteElements.isEmpty && volumeBeforeMute != nil && volume == 0)
+    }
+
+    /// マイクボタン: ミュートと解除を切り替える。解除するときはミュート前の音量に戻す。
+    func toggleMute() {
+        isMuteActive ? unmute() : mute()
+    }
+
+    private func mute() {
+        guard let deviceID, isSettable else { return }
+        if let volume, volume > 0 { volumeBeforeMute = volume }
+        if muteElements.isEmpty {
+            // ミュートを持たないデバイスは最小ゲインにするしかない
+            for element in elements { CoreAudioHAL.setInputVolume(deviceID, element: element, 0) }
+            volume = 0
+        } else {
+            // 音量はそのまま残し、ミュートだけをオンにする（解除すれば元の音量に戻る）
+            for element in muteElements { CoreAudioHAL.setInputMuted(deviceID, element: element, true) }
+            isMuted = true
+            volume = 0
+        }
+    }
+
+    private func unmute() {
+        guard let deviceID, isSettable else { return }
+        for element in muteElements { CoreAudioHAL.setInputMuted(deviceID, element: element, false) }
+        // スライダーで 0 にしてミュートした場合などは音量自体が 0 なので、ミュート前の音量に戻す
+        if (hardwareVolume() ?? 0) <= 0 {
+            let restored = volumeBeforeMute ?? Self.defaultRestoreVolume
+            for element in elements { CoreAudioHAL.setInputVolume(deviceID, element: element, restored) }
+        }
+        volumeBeforeMute = nil
+        isMuted = false
+        refresh()
+    }
+
     /// 全要素に同じ値を設定する（チャンネルごとの音量しかないデバイスでも一括で変える）。
     /// 0 のときはミュートし、0 より大きければミュートを解除する（ミュートがあるデバイスのみ）。
     func setVolume(_ newValue: Float) {
         guard let deviceID, isSettable else { return }
         let value = min(max(newValue, 0), 1)
         let mute = value <= 0 && !muteElements.isEmpty
+        if value <= 0 {
+            // スライダーで 0 にしたときも、マイクボタンで戻せるようにミュート前の音量を覚えておく。
+            // ドラッグ中は直前の値が 0 に近いので、ドラッグを始めたときの音量を使う
+            if let start = volumeAtEditStart, start > 0 {
+                volumeBeforeMute = start
+            } else if let volume, volume > 0 {
+                volumeBeforeMute = volume
+            }
+        } else {
+            volumeBeforeMute = nil
+        }
 
         var succeeded = elements.map { CoreAudioHAL.setInputVolume(deviceID, element: $0, value) }
         if !muteElements.isEmpty, mute != isMuted {
@@ -75,18 +135,25 @@ final class InputVolumeController {
         listeners = []
         elements = []
         muteElements = []
+        volumeBeforeMute = nil
         deviceID = nil
         volume = nil
         isSettable = false
         isMuted = false
     }
 
+    /// デバイスの実際の音量（ミュートは考慮しない）。チャンネルごとの場合は平均。
+    private func hardwareVolume() -> Float? {
+        guard let deviceID else { return nil }
+        let values = elements.compactMap { CoreAudioHAL.inputVolume(deviceID, element: $0) }
+        return values.isEmpty ? nil : values.reduce(0, +) / Float(values.count)
+    }
+
     /// 外部（システム設定や他のアプリ）での変更を反映する。チャンネルごとの場合は平均を表示する。
     private func refresh() {
         guard let deviceID else { return }
         let muted = muteElements.contains { CoreAudioHAL.isInputMuted(deviceID, element: $0) == true }
-        let values = elements.compactMap { CoreAudioHAL.inputVolume(deviceID, element: $0) }
-        let newVolume: Float? = values.isEmpty ? nil : (muted ? 0 : values.reduce(0, +) / Float(values.count))
+        let newVolume: Float? = hardwareVolume().map { muted ? 0 : $0 }
         if newVolume != volume { volume = newVolume }
         if muted != isMuted { isMuted = muted }
         #if DEBUG
