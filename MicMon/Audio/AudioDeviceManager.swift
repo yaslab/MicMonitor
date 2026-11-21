@@ -1,5 +1,6 @@
 import CoreAudio
 import Observation
+import os
 
 /// 入力デバイスの一覧とシステム既定の入力デバイスを保持し、変化を通知する。
 @MainActor
@@ -10,6 +11,8 @@ final class AudioDeviceManager {
 
     /// デバイス一覧または既定デバイスが変わったときに呼ばれる。
     @ObservationIgnored var onChange: (() -> Void)?
+
+    private static let logger = Logger(subsystem: "MicMon", category: "Devices")
 
     var defaultInputDevice: AudioInputDevice? {
         guard let defaultInputDeviceID else { return nil }
@@ -33,6 +36,10 @@ final class AudioDeviceManager {
                 let channels = CoreAudioHAL.inputChannelCount(id)
                 guard channels > 0, let uid = CoreAudioHAL.string(id, kAudioDevicePropertyDeviceUID) else { return nil }
                 let name = CoreAudioHAL.string(id, kAudioObjectPropertyName) ?? uid
+                if CoreAudioHAL.isPrivateAggregate(id) {
+                    Self.logger.debug("Excluded private aggregate device: \(name, privacy: .public)")
+                    return nil
+                }
                 return AudioInputDevice(id: id, uid: uid, name: name, inputChannelCount: channels)
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }

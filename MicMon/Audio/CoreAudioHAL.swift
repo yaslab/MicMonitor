@@ -53,6 +53,32 @@ enum CoreAudioHAL {
         return buffers.reduce(0) { $0 + Int($1.mNumberChannels) }
     }
 
+    static func transportType(_ id: AudioDeviceID) -> UInt32? {
+        var addr = address(kAudioDevicePropertyTransportType)
+        var value: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
+        return value
+    }
+
+    /// プライベートな集約デバイスか。
+    ///
+    /// AVAudioEngine などが既定の入出力を束ねるために自動で作る `CADefaultDeviceAggregate-<pid>-<n>` が該当する。
+    /// 作成したプロセスにしか見えず、エンジンの作り直しで消えるため、入力デバイスの候補から除く。
+    /// ユーザーが Audio MIDI 設定で作った集約デバイスはプライベートではないので残る。
+    static func isPrivateAggregate(_ id: AudioDeviceID) -> Bool {
+        guard transportType(id) == kAudioDeviceTransportTypeAggregate else { return false }
+        var addr = address(kAudioAggregateDevicePropertyComposition)
+        var value: Unmanaged<CFDictionary>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFDictionary>?>.size)
+        let status = withUnsafeMutablePointer(to: &value) { pointer in
+            AudioObjectGetPropertyData(id, &addr, 0, nil, &size, pointer)
+        }
+        guard status == noErr, let value else { return false }
+        let composition = value.takeRetainedValue() as NSDictionary
+        return (composition[kAudioAggregateDeviceIsPrivateKey] as? NSNumber)?.boolValue ?? false
+    }
+
     // MARK: - 入力音量
 
     static func inputVolumeAddress(element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
