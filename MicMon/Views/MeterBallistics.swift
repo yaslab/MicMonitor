@@ -24,6 +24,9 @@ final class MeterBallistics {
     private var lastUpdate: Date?
 
     func update(levels: [ChannelLevel], now: Date) -> [MeterReading] {
+        #if DEBUG
+        TimingProbe.frame.record()
+        #endif
         // 一時停止明けなどで大きく飛ばないよう上限を設ける
         let dt = Float(min(max(lastUpdate.map { now.timeIntervalSince($0) } ?? 0, 0), 0.25))
         lastUpdate = now

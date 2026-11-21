@@ -23,11 +23,15 @@ enum CaptureError: LocalizedError {
 final class AudioCaptureEngine {
     /// モニター再生に対応する最大の入力チャンネル数。
     static let maxMonitorChannels = 2
+    /// リアルタイムスレッドとポンプの間のリングバッファの長さ（秒）。
+    private static let ringSeconds = 1.0
 
     private let levels: LevelStore
     private let waveform: WaveformHistory
     private var engine: AVAudioEngine?
     private var playback: MonitorPlayback?
+    private var ring: SampleRingBuffer?
+    private var pump: AudioPump?
     private var configurationObservers: [any NSObjectProtocol] = []
     private var format: CaptureFormat?
 
@@ -73,20 +77,33 @@ final class AudioCaptureEngine {
 
         levels.configure(channelCount: channels)
         waveform.configure(channelCount: channels, sampleRate: format.sampleRate)
-        input.installTap(onBus: 0, bufferSize: 1024, format: format,
-                         block: Self.makeTapBlock(levels: levels, waveform: waveform, playback: playback))
+
+        // リアルタイムスレッド（シンクノード）→ リングバッファ → ポンプ（専用キュー）→ 集計・再生
+        let ring = SampleRingBuffer(channelCount: channels, capacity: Int(format.sampleRate * Self.ringSeconds))
+        guard let pump = AudioPump(format: format, ring: ring, levels: levels,
+                                   waveform: waveform, playback: playback)
+        else {
+            playback?.stop()
+            throw CaptureError.unsupportedFormat
+        }
+        let sink = AVAudioSinkNode(receiverBlock: Self.makeReceiverBlock(ring: ring))
+        engine.attach(sink)
+        engine.connect(input, to: sink, format: format)
 
         engine.prepare()
+        pump.start()
         do {
             try engine.start()
         } catch {
-            input.removeTap(onBus: 0)
+            pump.stop()
             playback?.stop()
             throw error
         }
 
         self.engine = engine
         self.playback = playback
+        self.ring = ring
+        self.pump = pump
         observeConfigurationChanges(of: engine)
         if let playback { observeConfigurationChanges(of: playback.engine) }
 
@@ -98,12 +115,12 @@ final class AudioCaptureEngine {
     func stop() {
         configurationObservers.forEach(NotificationCenter.default.removeObserver)
         configurationObservers = []
-        // 先にタップを外して再生への予約を止めてから、再生を止めて解放する（解放は MainActor で行う）
-        if let engine {
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
-        }
+        // 入力 → ポンプの順に止めて再生への予約を止めてから、再生を止めて解放する（解放は MainActor で行う）
+        engine?.stop()
         engine = nil
+        pump?.stop()
+        pump = nil
+        ring = nil
         format = nil
         playback?.stop()
         playback = nil
@@ -131,22 +148,22 @@ final class AudioCaptureEngine {
         if needsRestart { onConfigurationChange?() }
     }
 
-    /// タップのクロージャは nonisolated な文脈で作る。
-    /// MainActor の文脈で作ると、Swift 6 の実行時の分離チェックでタップのスレッドから呼ばれた際にクラッシュする。
+    #if DEBUG
+    /// 計測用: シンクノードの呼び出し回数と、リングバッファがあふれて捨てたフレーム数。
+    var sinkStatistics: (calls: Int, droppedFrames: Int)? {
+        ring.map { ($0.writeCallCount, $0.droppedFrames) }
+    }
+    #endif
+
+    /// シンクノードのクロージャはリアルタイムスレッドで呼ばれる。リングバッファへのコピーだけを行う。
     ///
-    /// `playback` は弱参照で持つ。タップのクロージャは AVAudioEngine 内部のキューで解放されるため、
-    /// ここで最後の参照を持つと、再生エンジンの解放（内部で同じキューに同期で入る）がそのキュー上で起きて
-    /// デッドロック検出によりクラッシュする。所有は `AudioCaptureEngine.playback`（MainActor）だけにする。
-    nonisolated private static func makeTapBlock(
-        levels: LevelStore, waveform: WaveformHistory, playback: MonitorPlayback?
-    ) -> AVAudioNodeTapBlock {
-        { [weak playback] buffer, _ in
-            guard let data = buffer.floatChannelData else { return }
-            let frames = Int(buffer.frameLength)
-            let channels = Int(buffer.format.channelCount)
-            levels.process(data, channelCount: channels, frameCount: frames)
-            waveform.process(data, channelCount: channels, frameCount: frames)
-            playback?.enqueue(buffer)
+    /// nonisolated な文脈で作る。MainActor の文脈で作ると、Swift 6 の実行時の分離チェックで
+    /// リアルタイムスレッドから呼ばれた際にクラッシュする。
+    /// 再生（`MonitorPlayback`）はここでは持たず、ポンプが弱参照で持つ（解放がメインスレッド以外で起きるとクラッシュするため）。
+    nonisolated private static func makeReceiverBlock(ring: SampleRingBuffer) -> AVAudioSinkNodeReceiverBlock {
+        { _, frameCount, bufferList in
+            ring.write(bufferList, frameCount: Int(frameCount))
+            return noErr
         }
     }
 }

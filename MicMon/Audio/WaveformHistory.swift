@@ -19,6 +19,9 @@ struct WaveformSnapshot: Sendable {
     /// チャンネルごとのビン列（古い順）。要素数は `capacity` 以下。
     var channels: [[WaveformBin]]
     var capacity: Int
+    /// 最新のビンの次の通し番号（記録開始からの累計ビン数）。
+    /// `channels[ch][i]` の通し番号は `endIndex - channels[ch].count + i`。
+    var endIndex: Int
 }
 
 /// 波形を一定間隔のビン（最大値・最小値・RMS）に間引いて、チャンネルごとのリングバッファに保持する。
@@ -32,6 +35,8 @@ final class WaveformHistory: Sendable {
         var head = 0
         /// 保持しているビン数。
         var count = 0
+        /// 記録開始からの累計ビン数（描画で列のまとめ方を固定するための通し番号）。
+        var totalBins = 0
         var rings: [[WaveformBin]] = []
         // 作りかけのビン
         var accumulatedFrames = 0
@@ -79,6 +84,7 @@ final class WaveformHistory: Sendable {
                 state.rings = Array(repeating: Array(repeating: .silent, count: state.capacity), count: channelCount)
                 state.head = 0
                 state.count = 0
+                state.totalBins = 0
             }
             state.resetAccumulators()
         }
@@ -138,6 +144,7 @@ final class WaveformHistory: Sendable {
                     state.resetAccumulators()
                     state.head = (head + 1) % state.capacity
                     state.count = Swift.min(state.count + 1, state.capacity)
+                    state.totalBins += 1
                 }
             }
         }
@@ -146,7 +153,8 @@ final class WaveformHistory: Sendable {
     func snapshot() -> WaveformSnapshot {
         state.withLock { state in
             WaveformSnapshot(channels: state.rings.map { state.ordered($0, limit: state.count) },
-                             capacity: state.capacity)
+                             capacity: state.capacity,
+                             endIndex: state.totalBins)
         }
     }
 }

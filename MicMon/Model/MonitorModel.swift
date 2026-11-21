@@ -238,9 +238,27 @@ final class MonitorModel {
                 let recent = bins.suffix(WaveformHistory.binsPerSecond)
                 let maximum = recent.map(\.max).max() ?? 0
                 let minimum = recent.map(\.min).min() ?? 0
-                return "ch\(index + 1): \(bins.count) bins, max \(String(format: "%+.4f", maximum)) (\(Decibel.format(Decibel.from(maximum))) dB), min \(String(format: "%+.4f", minimum)) (\(Decibel.format(Decibel.from(-minimum))) dB)"
+                let positiveOnly = recent.filter { $0.min > 0 }.count
+                let negativeOnly = recent.filter { $0.max < 0 }.count
+                return "ch\(index + 1): \(bins.count) bins (one-signed: +\(positiveOnly) / -\(negativeOnly) of \(recent.count)), max \(String(format: "%+.4f", maximum)) (\(Decibel.format(Decibel.from(maximum))) dB), min \(String(format: "%+.4f", minimum)) (\(Decibel.format(Decibel.from(-minimum))) dB)"
             }
             Self.logger.debug("Signal check: \(summary.joined(separator: ", "), privacy: .public)")
+
+            // 起動直後を避けて 3 秒間、シンクノードの呼び出し・ポンプの処理間隔・描画フレームの間隔を計測する
+            let sinkBefore = self.engine.sinkStatistics
+            TimingProbe.tap.reset()
+            TimingProbe.frame.reset()
+            let measureSeconds = 3.0
+            try? await Task.sleep(for: .seconds(measureSeconds))
+            guard self.isRunning else { return }
+            if let before = sinkBefore, let after = self.engine.sinkStatistics, let format = self.activeFormat {
+                let calls = after.calls - before.calls
+                let rate = Double(calls) / measureSeconds
+                let framesPerCall = rate > 0 ? format.sampleRate / rate : 0
+                Self.logger.debug("Sink timing: \(String(format: "%.1f calls/s (≈%.0f frames, %.1f ms per call)", rate, framesPerCall, framesPerCall / format.sampleRate * 1000), privacy: .public), dropped \(after.droppedFrames - before.droppedFrames) frames")
+            }
+            Self.logger.debug("Pump timing: \(TimingProbe.tap.summary(), privacy: .public)")
+            Self.logger.debug("Frame timing: \(TimingProbe.frame.summary(), privacy: .public)")
         }
     }
     #endif

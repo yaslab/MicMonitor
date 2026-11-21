@@ -35,7 +35,7 @@ Mac のマイク入力をリアルタイムでモニタリングする macOS ア
 | UI | SwiftUI（`Window` + `Settings` シーン） | |
 | 状態管理 | Observation (`@Observable`, `@MainActor`) | |
 | デバイス一覧・変更通知 | Core Audio HAL (`AudioObject*`) | 入力ch数・UID の取得、追加/削除・既定デバイス変更の監視ができる |
-| 音声入出力 | AVAudioEngine。入力デバイスは `inputNode.auAudioUnit.setDeviceID(_:)` で指定 | タップでのバッファ取得と、モニター再生のミキサー接続が簡単 |
+| 音声入出力 | AVAudioEngine。入力デバイスは `inputNode.auAudioUnit.setDeviceID(_:)` で指定し、`AVAudioSinkNode` で受け取る | `installTap` は macOS では 100 ms（4800 フレーム）単位でしか届かず、表示が 10 Hz になる。シンクノードは I/O の処理単位（512 フレーム ≈ 10.7 ms）で呼ばれる |
 | 信号処理 | Accelerate (vDSP) | |
 | 描画 | SwiftUI `Canvas` + `TimelineView(.animation)` | |
 | スレッド間共有 | `Synchronization.Mutex` | |
@@ -45,15 +45,15 @@ AVAudioEngine でデバイス切り替えが不安定な場合は、AUHAL を直
 ## 3. アーキテクチャ
 
 ```
-MainActor                                         タップのスレッド（AVAudioEngine 内部）
-─────────────────────────────────────────         ──────────────────────────────────────
-ContentView ─ TimelineView(.animation)            AVAudioEngine
-  ├ DevicePicker                                    inputNode ──tap──▶ LevelStore.process
-  ├ LevelMeterSection ◀── levels.read() ───┐           │          └──▶ WaveformHistory.process
-  ├ WaveformSection  ◀── waveform.snapshot()┤           └─(モニター時)─▶ MonitorPlayback（別エンジン）─▶ 出力
-  └ MonitorControls                         │
-SettingsView                                │     LevelStore / WaveformHistory は
-MonitorModel ── AudioCaptureEngine ─────────┘     Mutex で保護された Sendable クラス
+MainActor                                   リアルタイムスレッド        ポンプのキュー（5 ms ごと）
+─────────────────────────────────────       ────────────────────        ─────────────────────────────
+ContentView ─ TimelineView(.animation)      inputNode                   AudioPump.drain
+  ├ DevicePicker                              └▶ AVAudioSinkNode           ├▶ LevelStore.process
+  ├ LevelMeterSection ◀── levels.read() ─┐        └▶ SampleRingBuffer ──▶ ├▶ WaveformHistory.process
+  ├ WaveformSection ◀── waveform.snapshot()┤          （ロックなし）        └▶ MonitorPlayback（別エンジン）─▶ 出力
+  └ MonitorControls                       │
+SettingsView                              │   LevelStore / WaveformHistory は Mutex で保護された Sendable クラス。
+MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使うのはポンプのキューと MainActor だけ
      └── AudioDeviceManager（HAL リスナー）
 ```
 
@@ -64,17 +64,23 @@ MonitorModel ── AudioCaptureEngine ─────────┘     Mutex 
 | `CoreAudioHAL` | HAL プロパティ取得・リスナー登録のヘルパー | nonisolated |
 | `InputVolumeController` | 使用中デバイスの入力音量の読み書きと、外部での変更の監視 | MainActor |
 | `AudioDeviceManager` | 入力デバイス一覧と既定入力デバイスを保持。変化したら `onChange` を呼ぶ | MainActor |
-| `AudioCaptureEngine` | エンジン構築・タップ・停止。構成変更通知を中継 | MainActor（タップ処理は nonisolated） |
-| `MonitorPlayback` | 出力専用の AVAudioEngine。タップのバッファをコピーして `AVAudioPlayerNode` で再生 | 予約はタップのスレッド、それ以外は MainActor |
+| `AudioCaptureEngine` | エンジン構築（inputNode → シンクノード）・停止。構成変更通知を中継 | MainActor（シンクのクロージャは nonisolated） |
+| `SampleRingBuffer` | シンクノードからポンプへサンプルを渡すロックなしのリングバッファ（書き込み 1・読み出し 1、`Atomic` の添字、1 秒分） | 書: リアルタイムスレッド / 読: ポンプ |
+| `AudioPump` | 5 ms ごとにリングバッファを読み出し、レベル・波形・モニター再生に渡す | 専用の DispatchQueue |
+| `MonitorPlayback` | 出力専用の AVAudioEngine。ポンプから受け取ったバッファをコピーして `AVAudioPlayerNode` で再生 | 予約はポンプのキュー、それ以外は MainActor |
 | `LevelStore` | ch ごとの Peak（前回の読み出し以降の最大値）・RMS・クリップ | Sendable + Mutex |
-| `WaveformHistory` | ch ごとのリングバッファ（ビンごとに Peak と RMS） | Sendable + Mutex |
+| `WaveformHistory` | ch ごとのリングバッファ（ビンごとに最大値・最小値・RMS） | Sendable + Mutex |
 | `MeterBallistics` | 表示側の減衰とピークホールド | MainActor（View が所有） |
 | `MonitorModel` | 権限、選択、設定、エンジンの再構成を統括 | MainActor |
 
 ### 3.1 スレッドの方針
 
-- `installTap` のコールバックは IO スレッドではないため、短時間の Mutex なら使ってよい。コールバック内ではメモリ確保と MainActor への hop をしない。
-- タップのクロージャは `nonisolated` な関数の中で生成する（MainActor のコンテキストで作ると、Swift 6 の実行時の分離チェックでクラッシュするため）。
+- シンクノードのクロージャはリアルタイムスレッドで呼ばれる。ここではリングバッファへのコピーだけを行い、ロック・メモリ確保・MainActor への hop をしない。
+- Mutex を使う集計と再生の予約は、ポンプの専用キューで行う。ポンプの間隔ぶん（最大 5 ms 程度）の遅れが加わる。
+- リングバッファがあふれたら（ポンプが 1 秒以上止まった場合）そのブロックを捨てて数える。
+- シンクのクロージャは `nonisolated` な関数の中で生成する（MainActor のコンテキストで作ると、Swift 6 の実行時の分離チェックでクラッシュするため）。
+- `MonitorPlayback` を持つのは `AudioCaptureEngine`（MainActor）だけで、ポンプは弱参照で持つ。解放がメインスレッド以外で起きると AVAudioEngine 内部でデッドロックしてクラッシュするため。
+- 実測（MacBook Air 内蔵マイク、48 kHz）: シンクノード 94 回/秒（512 フレーム）、あふれ 0、描画 60 fps。
 - UI は毎フレーム、ストアからスナップショットを取得して描画する（プル型）。
 
 ### 3.2 エンジンの再構成
@@ -92,7 +98,7 @@ ch 数が変わらなければ波形履歴は保持する。
 
 ### 4.1 レベル
 
-- バッファ（約 1024 フレーム）ごとに ch ごとに `vDSP_maxmgv`（Peak）と `vDSP_rmsqv`（RMS）を計算する。
+- ポンプが読み出したブロック（通常 512 フレーム）ごとに、ch ごとに `vDSP_maxmgv`（Peak）と `vDSP_rmsqv`（RMS）を計算する。
 - Peak は UI が読むまで最大値を保持し、読んだらリセットする（取りこぼしを防ぐため）。
 - 表示側: アタックは即時、リリースは 20 dB/秒、ピークホールドは 1.5 秒保持してから 20 dB/秒で下げる。
 - 色分け: 緑（〜-18 dB）、黄（〜-6 dB）、赤（-6 dB〜）。
@@ -102,13 +108,14 @@ ch 数が変わらなければ波形履歴は保持する。
 - 200 ビン/秒（5 ms/ビン）に間引く。1 ビン = 最大値（`vDSP_maxv`）、最小値（`vDSP_minv`）、RMS（`vDSP_svesq` の合計から計算）。符号を残すので、非対称な波形・DC オフセット・片側だけのクリップが見える。
 - バッファ境界をまたぐビンは累積値を持ち越して計算する。
 - 容量 = N × 200（60 秒 × 2ch でも約 290KB）。N を変えたら、最新のものから入る分だけ引き継ぐ。
-- 描画: 横幅のピクセル列ごとに該当するビンの最大値・最小値・RMS をまとめ、上側に正の最大値、下側に負の最小値の大きさを、それぞれ dB → 0〜1 に正規化して描く（淡色）。RMS は符号を持たないため上下同じ高さで重ねる（濃色）が、各側の振れ幅は超えないようにする。
+- 描画: 1 ピクセル以上の幅になるようにビンを数個ずつ列にまとめ、各列の最大値・最小値・RMS をまとめ、上側に正の最大値、下側に負の最小値の大きさを、それぞれ dB → 0〜1 に正規化して描く（淡色）。RMS は符号を持たないため上下同じ高さで重ねる（濃色）が、各側の振れ幅は超えないようにする。
+- 列のまとめ方は表示位置ではなく、ビンの通し番号（記録開始からの累計）で固定する。表示位置で区切ると、データが届くたびに列の中身が入れ替わり、片側だけのビン（5 ms の中で符号が変わらないもの。実測で約 1 割）が出たり消えたりしてチラつく。
 
 ## 5. モニター再生
 
 - macOS の AVAudioEngine は inputNode と outputNode で 1 つの I/O ユニットを共有する。入力デバイスを指定したエンジンの出力はそのデバイス（入力専用なら 0 ch）になり、別デバイスへの出力は初期化に失敗する（-10875）。
-- そのため再生は**出力専用の別エンジン**（`MonitorPlayback`）で行う。タップで受け取ったバッファをコピーし、`AVAudioPlayerNode.scheduleBuffer` で予約する。出力先はシステム既定の出力デバイスで、サンプルレートの違いは mainMixer が変換する。
-- 再生待ちが 250 ms を超えたら入力を捨て、クロック差で遅延が増え続けないようにする。遅延はタップのバッファ長ぶん（数十〜100 ms 程度）。
+- そのため再生は**出力専用の別エンジン**（`MonitorPlayback`）で行う。ポンプから受け取ったバッファをコピーし、`AVAudioPlayerNode.scheduleBuffer` で予約する。出力先はシステム既定の出力デバイスで、サンプルレートの違いは mainMixer が変換する。
+- 再生待ちが 250 ms を超えたら入力を捨て、クロック差で遅延が増え続けないようにする。遅延は入力の処理単位（約 11 ms）、ポンプの間隔（最大 5 ms）、出力側のバッファの合計。
 - 再生の開始に失敗しても計測は続け、モニター操作の下にエラーを表示する。
 - 再生側のエンジンが止まったら（出力デバイスの変更など）全体を再構成する。
 - 既定はオフ。ハウリング防止のため、UI にヘッドホン使用の注意を出す。
@@ -136,9 +143,10 @@ ch 数が変わらなければ波形履歴は保持する。
 MicMon/
   App/MicMonApp.swift
   Audio/AudioInputDevice.swift, CoreAudioHAL.swift, AudioDeviceManager.swift,
-        AudioCaptureEngine.swift, MonitorPlayback.swift, InputVolumeController.swift, LevelStore.swift,
+        AudioCaptureEngine.swift, SampleRingBuffer.swift, AudioPump.swift, MonitorPlayback.swift,
+        InputVolumeController.swift, LevelStore.swift,
         WaveformHistory.swift, Decibel.swift
-  Model/DeviceSelection.swift, MonitorModel.swift
+  Model/DeviceSelection.swift, MonitorModel.swift, TimingProbe.swift（DEBUG のみ・計測用）
   Views/ContentView.swift, DevicePicker.swift, LevelMeterView.swift, MeterBallistics.swift,
         WaveformView.swift, MonitorControls.swift, InputVolumeControl.swift, SettingsView.swift
 ```
