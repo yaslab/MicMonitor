@@ -28,8 +28,9 @@ final class DisplayModeController {
 
     private static let modeKey = "displayMode"
     private static let cardFrameName = "MicMonCard"
-    static let cardDefaultSize = NSSize(width: 340, height: 220)
-    static let cardMinimumSize = NSSize(width: 260, height: 170)
+    /// 高さは中身に合わせて決まる（ここでの高さは最初の仮の値）。
+    static let cardDefaultSize = NSSize(width: 300, height: 100)
+    static let cardMinimumWidth: CGFloat = 220
     /// 画面端からこの距離以内で離したら吸着する。
     private static let snapThreshold: CGFloat = 24
     /// 吸着したときの画面端との余白。
@@ -157,7 +158,6 @@ final class DisplayModeController {
         }
         panel.isOpaque = false
         panel.backgroundColor = .clear
-        panel.minSize = Self.cardMinimumSize
         panel.isReleasedWhenClosed = false
 
         // 半透明: 背後の画面をぼかして透かす
@@ -166,7 +166,8 @@ final class DisplayModeController {
         effect.blendingMode = .behindWindow
         effect.state = .active
         let hosting = NSHostingView(rootView: CardView().environment(model).environment(self))
-        hosting.sizingOptions = []
+        // 中身の最小・最大サイズをパネルに反映する。高さは中身に固定され、幅は最小幅以上で自由に変えられる
+        hosting.sizingOptions = [.minSize, .maxSize]
         // サイズ変更・角丸・影のため .titled のままにしているが、タイトルバーは使わない。
         // セーフエリアを無効にしないと、タイトルバーの高さぶん上に余白ができる
         hosting.safeAreaRegions = []

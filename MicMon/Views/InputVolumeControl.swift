@@ -45,5 +45,8 @@ struct InputVolumeControl: View {
                     .foregroundStyle(.secondary)
             }
         }
+        // カード表示ではスライダーとボタンを最小サイズにする
+        .controlSize(compact ? .mini : .regular)
+        .font(compact ? .system(size: 10) : nil)
     }
 }

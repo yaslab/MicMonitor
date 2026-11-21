@@ -166,10 +166,6 @@ final class MonitorModel {
         levels.reset()
     }
 
-    func resetClip() {
-        levels.resetClip()
-    }
-
     // MARK: - 内部
 
     private func updatePermission() async {

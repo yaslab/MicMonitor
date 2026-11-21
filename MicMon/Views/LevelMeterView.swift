@@ -3,32 +3,42 @@ import SwiftUI
 struct LevelMeterSection: View {
     let readings: [MeterReading]
     var showsScale = true
+    /// カード表示用: バーと文字を半分ほどの高さにする。
+    var compact = false
     let onResetClip: () -> Void
 
     private static let labelWidth: CGFloat = 20
     private static let valueWidth: CGFloat = 64
     private static let clipWidth: CGFloat = 14
 
+    private var barHeight: CGFloat { compact ? 7 : 14 }
+    private var textFont: Font { compact ? .system(size: 9) : .caption }
+    private var clipSize: CGFloat { compact ? 6 : 10 }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: compact ? 3 : 6) {
             ForEach(readings.indices, id: \.self) { index in
                 let reading = readings[index]
                 HStack(spacing: 8) {
-                    Text(ChannelLabel.label(index: index, count: readings.count))
-                        .font(.caption.monospaced())
-                        .frame(width: Self.labelWidth, alignment: .trailing)
+                    // カード表示ではチャンネル番号を出さない
+                    if !compact {
+                        Text(ChannelLabel.label(index: index, count: readings.count))
+                            .font(textFont.monospaced())
+                            .frame(width: Self.labelWidth, alignment: .trailing)
+                    }
                     MeterBar(reading: reading)
-                        .frame(height: 14)
-                    Text("\(Decibel.format(reading.peakDB)) dB")
-                        .font(.caption.monospacedDigit())
-                        .frame(width: Self.valueWidth, alignment: .trailing)
+                        .frame(height: barHeight)
                     Circle()
                         .fill(reading.clipped ? Color.red : Color.secondary.opacity(0.25))
-                        .frame(width: 10, height: 10)
+                        .frame(width: clipSize, height: clipSize)
                         .frame(width: Self.clipWidth)
                         .contentShape(Rectangle())
                         .onTapGesture(perform: onResetClip)
-                        .help("クリップ表示（クリックで解除）")
+                        .help("クリップ表示（1.5 秒で自動的に消える。クリックですぐに消す）")
+                    // 数字はピークホールド（直近のピークを 1.5 秒保持してから下げる）を表示する
+                    Text("\(Decibel.format(reading.holdDB)) dB")
+                        .font(textFont.monospacedDigit())
+                        .frame(width: compact ? 48 : Self.valueWidth, alignment: .trailing)
                 }
             }
             if showsScale {

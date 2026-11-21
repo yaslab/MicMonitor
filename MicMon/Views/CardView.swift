@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 画面の最前面に常駐する小さなカード。メーター・波形・入力音量を表示する。
+/// 画面の最前面に常駐する小さなカード。メーターと入力音量を表示する。
 /// どこを掴んでもドラッグで移動でき、離したときに画面端の近くなら吸着する。
 struct CardView: View {
     @Environment(MonitorModel.self) private var model
@@ -9,8 +9,6 @@ struct CardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Image(systemName: model.inputVolume.isMuted ? "mic.slash.fill" : "mic.fill")
-                    .foregroundStyle(.secondary)
                 Text(model.activeDevice?.name ?? "入力デバイスなし")
                     .font(.caption)
                     .lineLimit(1)
@@ -36,7 +34,9 @@ struct CardView: View {
             InputVolumeControl(compact: true)
         }
         .padding(12)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(minWidth: DisplayModeController.cardMinimumWidth, maxWidth: .infinity, alignment: .topLeading)
+        // 高さは中身に合わせる（パネルの高さもこれに固定され、幅だけ変えられる）
+        .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
         // スライダーやボタンは自分のジェスチャーが優先されるので、それ以外の場所を掴むと移動する
         .gesture(

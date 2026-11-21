@@ -7,10 +7,11 @@ struct MeterReading: Equatable {
     var clipped: Bool
 }
 
-/// メーター表示の減衰とピークホールド。描画フレームごとに `update` を呼ぶ。
+/// メーター表示の減衰・ピークホールド・クリップ表示の保持。描画フレームごとに `update` を呼ぶ。
 @MainActor
 final class MeterBallistics {
     static let releaseDBPerSecond: Float = 20
+    /// ピークホールドとクリップ表示を保持する時間。
     static let holdSeconds: TimeInterval = 1.5
 
     private struct Channel {
@@ -18,6 +19,8 @@ final class MeterBallistics {
         var peak = Decibel.floor
         var hold = Decibel.floor
         var holdTime = Date.distantPast
+        /// 最後にクリップを検出した時刻。
+        var clipTime = Date.distantPast
     }
 
     private var channels: [Channel] = []
@@ -49,11 +52,19 @@ final class MeterBallistics {
             } else if now.timeIntervalSince(channel.holdTime) > Self.holdSeconds {
                 channel.hold = max(channel.peak, channel.hold - decay)
             }
+            // クリップ表示も、最後のクリップからピークホールドと同じ時間だけ点灯させて自動で消す
+            if level.clipped { channel.clipTime = now }
+            let clipped = now.timeIntervalSince(channel.clipTime) <= Self.holdSeconds
             channels[i] = channel
             readings.append(MeterReading(rmsDB: channel.rms, peakDB: channel.peak,
-                                         holdDB: channel.hold, clipped: level.clipped))
+                                         holdDB: channel.hold, clipped: clipped))
         }
         return readings
+    }
+
+    /// クリップ表示をすぐに消す（丸をクリックしたとき）。
+    func resetClip() {
+        for i in channels.indices { channels[i].clipTime = .distantPast }
     }
 }
 

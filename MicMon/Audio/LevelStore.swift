@@ -6,7 +6,7 @@ struct ChannelLevel: Sendable, Equatable {
     var peak: Float
     /// 直近バッファの RMS（線形振幅）。
     var rms: Float
-    /// クリップを検出したか（`resetClip()` まで保持）。
+    /// 前回の `read()` 以降にクリップを検出したか。表示の保持は `MeterBallistics` が行う。
     var clipped: Bool
 }
 
@@ -25,9 +25,7 @@ final class LevelStore: Sendable {
 
     func configure(channelCount: Int) {
         state.withLock { state in
-            if state.peak.count != channelCount {
-                state.clipped = Array(repeating: false, count: channelCount)
-            }
+            state.clipped = Array(repeating: false, count: channelCount)
             state.peak = Array(repeating: 0, count: channelCount)
             state.rms = Array(repeating: 0, count: channelCount)
         }
@@ -38,13 +36,8 @@ final class LevelStore: Sendable {
             for i in state.peak.indices {
                 state.peak[i] = 0
                 state.rms[i] = 0
+                state.clipped[i] = false
             }
-        }
-    }
-
-    func resetClip() {
-        state.withLock { state in
-            for i in state.clipped.indices { state.clipped[i] = false }
         }
     }
 
@@ -64,13 +57,16 @@ final class LevelStore: Sendable {
         }
     }
 
-    /// 現在の値を返し、Peak の保持をリセットする。
+    /// 現在の値を返し、Peak とクリップの保持をリセットする。
     func read() -> [ChannelLevel] {
         state.withLock { state in
             let result = state.peak.indices.map {
                 ChannelLevel(peak: state.peak[$0], rms: state.rms[$0], clipped: state.clipped[$0])
             }
-            for i in state.peak.indices { state.peak[i] = 0 }
+            for i in state.peak.indices {
+                state.peak[i] = 0
+                state.clipped[i] = false
+            }
             return result
         }
     }
