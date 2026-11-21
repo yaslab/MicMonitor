@@ -235,8 +235,10 @@ final class MonitorModel {
             guard let self, self.isRunning else { return }
             let snapshot = self.waveform.snapshot()
             let summary = snapshot.channels.enumerated().map { index, bins in
-                let peak = bins.suffix(WaveformHistory.binsPerSecond).map(\.peak).max() ?? 0
-                return "ch\(index + 1): \(bins.count) bins, peak \(Decibel.format(Decibel.from(peak))) dB"
+                let recent = bins.suffix(WaveformHistory.binsPerSecond)
+                let maximum = recent.map(\.max).max() ?? 0
+                let minimum = recent.map(\.min).min() ?? 0
+                return "ch\(index + 1): \(bins.count) bins, max \(String(format: "%+.4f", maximum)) (\(Decibel.format(Decibel.from(maximum))) dB), min \(String(format: "%+.4f", minimum)) (\(Decibel.format(Decibel.from(-minimum))) dB)"
             }
             Self.logger.debug("Signal check: \(summary.joined(separator: ", "), privacy: .public)")
         }

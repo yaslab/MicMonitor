@@ -64,23 +64,36 @@ struct WaveformView: View {
             // 履歴が容量に満たない間は左側を空ける
             let leadingEmpty = capacity - bins.count
 
+            /// 振幅（線形・0 以上）を中心線からの高さにする。
+            func height(_ amplitude: Float) -> CGFloat {
+                CGFloat(Decibel.normalized(Decibel.from(amplitude))) * mid
+            }
+
             var peakPath = Path()
             var rmsPath = Path()
             for column in 0..<columns {
                 let lower = max(column * capacity / columns - leadingEmpty, 0)
                 let upper = min((column + 1) * capacity / columns - leadingEmpty, bins.count)
                 guard lower < upper else { continue }
-                var peak: Float = 0
+                var maximum: Float = 0
+                var minimum: Float = 0
                 var rms: Float = 0
                 for i in lower..<upper {
-                    peak = max(peak, bins[i].peak)
+                    maximum = max(maximum, bins[i].max)
+                    minimum = min(minimum, bins[i].min)
                     rms = max(rms, bins[i].rms)
                 }
                 let x = CGFloat(column) * columnWidth
-                let peakHeight = CGFloat(Decibel.normalized(Decibel.from(peak))) * mid
-                let rmsHeight = CGFloat(Decibel.normalized(Decibel.from(rms))) * mid
-                peakPath.addRect(CGRect(x: x, y: mid - peakHeight, width: columnWidth + 0.5, height: peakHeight * 2))
-                rmsPath.addRect(CGRect(x: x, y: mid - rmsHeight, width: columnWidth + 0.5, height: rmsHeight * 2))
+                let width = columnWidth + 0.5
+                // 上側は正の最大値、下側は負の最小値の大きさ（それぞれ dB スケール）
+                let upperHeight = height(maximum)
+                let lowerHeight = height(-minimum)
+                peakPath.addRect(CGRect(x: x, y: mid - upperHeight, width: width, height: upperHeight + lowerHeight))
+                // RMS は符号を持たないので上下同じ高さ。ただし各側の振れ幅を超えないようにする
+                let rmsHeight = height(rms)
+                let rmsUpper = min(rmsHeight, upperHeight)
+                let rmsLower = min(rmsHeight, lowerHeight)
+                rmsPath.addRect(CGRect(x: x, y: mid - rmsUpper, width: width, height: rmsUpper + rmsLower))
             }
             context.fill(peakPath, with: .color(.accentColor.opacity(0.4)))
             context.fill(rmsPath, with: .color(.accentColor))
