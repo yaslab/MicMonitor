@@ -111,6 +111,54 @@ enum CoreAudioHAL {
         return value
     }
 
+    /// 入力音量の dB 値（デバイスが dB 換算に対応していない場合は nil）。
+    static func inputVolumeDecibels(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Float? {
+        var addr = address(kAudioDevicePropertyVolumeDecibels, scope: kAudioObjectPropertyScopeInput, element: element)
+        var value: Float32 = 0
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
+        return value
+    }
+
+    /// 入力音量の dB の範囲。
+    static func inputVolumeDecibelRange(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> ClosedRange<Float>? {
+        var addr = address(kAudioDevicePropertyVolumeRangeDecibels, scope: kAudioObjectPropertyScopeInput, element: element)
+        var range = AudioValueRange()
+        var size = UInt32(MemoryLayout<AudioValueRange>.size)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &range) == noErr,
+              range.mMinimum <= range.mMaximum else { return nil }
+        return Float(range.mMinimum)...Float(range.mMaximum)
+    }
+
+    // MARK: - 入力ミュート
+
+    static func inputMuteAddress(element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
+        address(kAudioDevicePropertyMute, scope: kAudioObjectPropertyScopeInput, element: element)
+    }
+
+    static func isInputMuteSettable(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Bool {
+        var addr = inputMuteAddress(element: element)
+        guard AudioObjectHasProperty(id, &addr) else { return false }
+        var settable: DarwinBoolean = false
+        return AudioObjectIsPropertySettable(id, &addr, &settable) == noErr && settable.boolValue
+    }
+
+    static func isInputMuted(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Bool? {
+        var addr = inputMuteAddress(element: element)
+        var value: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
+        return value != 0
+    }
+
+    @discardableResult
+    static func setInputMuted(_ id: AudioDeviceID, element: AudioObjectPropertyElement, _ muted: Bool) -> Bool {
+        var addr = inputMuteAddress(element: element)
+        var value: UInt32 = muted ? 1 : 0
+        let size = UInt32(MemoryLayout<UInt32>.size)
+        return AudioObjectSetPropertyData(id, &addr, 0, nil, size, &value) == noErr
+    }
+
     @discardableResult
     static func setInputVolume(_ id: AudioDeviceID, element: AudioObjectPropertyElement, _ volume: Float) -> Bool {
         var addr = inputVolumeAddress(element: element)

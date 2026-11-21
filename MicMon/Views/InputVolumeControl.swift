@@ -9,7 +9,7 @@ struct InputVolumeControl: View {
         let volume = model.inputVolume.volume
         HStack(spacing: 8) {
             Text("入力音量")
-            Image(systemName: "mic")
+            Image(systemName: model.inputVolume.isMuted ? "mic.slash" : "mic")
                 .foregroundStyle(.secondary)
             // 無段階。目盛り（0%, 17%, 33%, 50%, 67%, 83%, 100%）の近くでは吸着する
             Slider(value: $model.inputVolumeValue, in: 0...1) {
