@@ -1,4 +1,4 @@
-# MicMon 設計書 v0.2
+# MicMon 設計書 v0.3
 
 Mac のマイク入力をリアルタイムでモニタリングする macOS アプリ。用途は自分用（デバッグ実行）。
 
@@ -13,6 +13,7 @@ Mac のマイク入力をリアルタイムでモニタリングする macOS ア
 | F3 | 波形履歴 | チャンネルごとに直近 N 秒分の波形（縦軸 dB スケール）をスクロール表示 |
 | F4 | 設定 | N（1〜60 秒、既定 10 秒）を設定画面（⌘,）で変更 |
 | F5 | モニター再生 | 入力音をシステム既定の出力デバイスで再生。オン/オフと音量 |
+| F6 | 入力音量 | 選択中デバイスのシステム入力音量（システム設定 > サウンド > 入力 と同じ値）を表示・変更 |
 
 ### 1.2 決定事項
 
@@ -23,7 +24,7 @@ Mac のマイク入力をリアルタイムでモニタリングする macOS ア
 - 「システム既定」選択時は OS 側の既定マイク変更に追従
 - 選択中のデバイスが外れたらシステム既定で継続し、再接続されたら元のデバイスに戻す
 - 選択デバイス・N・モニター再生のオン/オフと音量は UserDefaults に保存
-- 対象外: 録音・保存、入力ゲイン調整、他のウィンドウ形態（必要なら別途）
+- 対象外: 録音・保存、他のウィンドウ形態（必要なら別途）
 - 配布: 自分用。署名・公証は考慮しない
 
 ## 2. 技術選定
@@ -60,6 +61,7 @@ MonitorModel ── AudioCaptureEngine ─────────┘     Mutex 
 | `AudioInputDevice` | `id`, `uid`, `name`, `inputChannelCount` | 値型 |
 | `DeviceSelection` | `.systemDefault` / `.device(uid:)`。UID で保存（`AudioDeviceID` は再接続で変わるため） | 値型 |
 | `CoreAudioHAL` | HAL プロパティ取得・リスナー登録のヘルパー | nonisolated |
+| `InputVolumeController` | 使用中デバイスの入力音量の読み書きと、外部での変更の監視 | MainActor |
 | `AudioDeviceManager` | 入力デバイス一覧と既定入力デバイスを保持。変化したら `onChange` を呼ぶ | MainActor |
 | `AudioCaptureEngine` | エンジン構築・タップ・モニター接続・停止。構成変更通知を中継 | MainActor（タップ処理は nonisolated） |
 | `LevelStore` | ch ごとの Peak（前回の読み出し以降の最大値）・RMS・クリップ | Sendable + Mutex |
@@ -107,9 +109,18 @@ ch 数が変わらなければ波形履歴は保持する。
 - 入力が 3ch 以上のデバイスでは無効にする（ミキサーのチャンネルレイアウトが合わずに例外で落ちるのを避けるため）。必要になったら ch 選択式で対応する。
 - 入力と出力が別デバイスのため、クロックのずれによる軽いノイズは許容する。
 
+## 5.1 入力音量
+
+- Core Audio HAL の `kAudioDevicePropertyVolumeScalar`（入力スコープ、0...1）を読み書きする。システム全体の設定なので、アプリを終了しても値は残る。
+- 要素 0（マスター）があればそれを使い、なければ音量を持つチャンネル（要素 1...n）すべてに同じ値を設定する。表示はその平均。
+- `AudioObjectIsPropertySettable` で変更できないデバイスはスライダーを無効にし、理由を表示する。
+- 音量プロパティを監視し、システム設定や他のアプリでの変更を UI に反映する。対象デバイスが変わったらリスナーを付け替える。
+- スライダーは無段階。7 つの目盛り（0%, 17%, 33%, 50%, 67%, 83%, 100%）を表示し、目盛りから ±2% 以内では目盛りの値に吸着する。
+- ミュートは扱わない。
+
 ## 6. UI
 
-- メイン: デバイスピッカー（フォールバック中はその旨を表示）、フォーマット表示（例: 48 kHz · 2 ch）、メーター（ch ごと: ラベル、バー、数値、クリップ）、dB 目盛り、波形（ch ごと）、時間軸（-N s 〜 now）、モニター再生の操作。
+- メイン: デバイスピッカー（フォールバック中はその旨を表示）、フォーマット表示（例: 48 kHz · 2 ch）、入力音量スライダー、メーター（ch ごと: ラベル、バー、数値、クリップ）、dB 目盛り、波形（ch ごと）、時間軸（-N s 〜 now）、モニター再生の操作。
 - マイク権限が拒否されている場合は、システム設定を開くボタンを出す。
 - 設定（⌘,）: 波形履歴の長さ（スライダー + ステッパー、1〜60 秒）。
 
@@ -119,10 +130,11 @@ ch 数が変わらなければ波形履歴は保持する。
 MicMon/
   App/MicMonApp.swift
   Audio/AudioInputDevice.swift, CoreAudioHAL.swift, AudioDeviceManager.swift,
-        AudioCaptureEngine.swift, LevelStore.swift, WaveformHistory.swift, Decibel.swift
+        AudioCaptureEngine.swift, InputVolumeController.swift, LevelStore.swift,
+        WaveformHistory.swift, Decibel.swift
   Model/DeviceSelection.swift, MonitorModel.swift
   Views/ContentView.swift, DevicePicker.swift, LevelMeterView.swift, MeterBallistics.swift,
-        WaveformView.swift, MonitorControls.swift, SettingsView.swift
+        WaveformView.swift, MonitorControls.swift, InputVolumeControl.swift, SettingsView.swift
 ```
 
 ## 8. 今後

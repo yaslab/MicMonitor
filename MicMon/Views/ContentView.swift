@@ -21,6 +21,7 @@ struct ContentView: View {
     private var monitor: some View {
         VStack(alignment: .leading, spacing: 16) {
             DevicePicker()
+            InputVolumeControl()
 
             if let errorMessage = model.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")

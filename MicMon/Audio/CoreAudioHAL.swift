@@ -7,9 +7,10 @@ enum CoreAudioHAL {
 
     static func address(
         _ selector: AudioObjectPropertySelector,
-        scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal
+        scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal,
+        element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain
     ) -> AudioObjectPropertyAddress {
-        AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
+        AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
     }
 
     static func deviceIDs() -> [AudioDeviceID] {
@@ -50,6 +51,80 @@ enum CoreAudioHAL {
         guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, raw) == noErr else { return 0 }
         let buffers = UnsafeMutableAudioBufferListPointer(raw.assumingMemoryBound(to: AudioBufferList.self))
         return buffers.reduce(0) { $0 + Int($1.mNumberChannels) }
+    }
+
+    // MARK: - 入力音量
+
+    static func inputVolumeAddress(element: AudioObjectPropertyElement) -> AudioObjectPropertyAddress {
+        address(kAudioDevicePropertyVolumeScalar, scope: kAudioObjectPropertyScopeInput, element: element)
+    }
+
+    /// 入力音量を持つ要素。マスター（要素 0）があればそれだけ、なければ音量を持つチャンネル（要素 1...n）。
+    static func inputVolumeElements(_ id: AudioDeviceID) -> [AudioObjectPropertyElement] {
+        var master = inputVolumeAddress(element: kAudioObjectPropertyElementMain)
+        if AudioObjectHasProperty(id, &master) { return [kAudioObjectPropertyElementMain] }
+        let channels = inputChannelCount(id)
+        guard channels > 0 else { return [] }
+        return (1...UInt32(channels)).filter { element in
+            var addr = inputVolumeAddress(element: element)
+            return AudioObjectHasProperty(id, &addr)
+        }
+    }
+
+    static func isInputVolumeSettable(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Bool {
+        var addr = inputVolumeAddress(element: element)
+        var settable: DarwinBoolean = false
+        return AudioObjectIsPropertySettable(id, &addr, &settable) == noErr && settable.boolValue
+    }
+
+    static func inputVolume(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Float? {
+        var addr = inputVolumeAddress(element: element)
+        var value: Float32 = 0
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
+        return value
+    }
+
+    @discardableResult
+    static func setInputVolume(_ id: AudioDeviceID, element: AudioObjectPropertyElement, _ volume: Float) -> Bool {
+        var addr = inputVolumeAddress(element: element)
+        var value = Float32(min(max(volume, 0), 1))
+        let size = UInt32(MemoryLayout<Float32>.size)
+        return AudioObjectSetPropertyData(id, &addr, 0, nil, size, &value) == noErr
+    }
+
+    // MARK: - リスナー
+
+    /// 登録したリスナー。解除には登録時と同じブロックが必要なため保持しておく。
+    final class PropertyListener {
+        fileprivate let objectID: AudioObjectID
+        fileprivate var address: AudioObjectPropertyAddress
+        fileprivate let block: AudioObjectPropertyListenerBlock
+
+        fileprivate init(objectID: AudioObjectID, address: AudioObjectPropertyAddress, block: @escaping AudioObjectPropertyListenerBlock) {
+            self.objectID = objectID
+            self.address = address
+            self.block = block
+        }
+    }
+
+    /// 任意のオブジェクトのプロパティ変化を監視する。handler はメインスレッドで呼ばれる。
+    static func addListener(
+        _ objectID: AudioObjectID,
+        address: AudioObjectPropertyAddress,
+        handler: @escaping @MainActor @Sendable () -> Void
+    ) -> PropertyListener? {
+        var addr = address
+        let block: AudioObjectPropertyListenerBlock = { _, _ in
+            MainActor.assumeIsolated { handler() }
+        }
+        guard AudioObjectAddPropertyListenerBlock(objectID, &addr, DispatchQueue.main, block) == noErr else { return nil }
+        return PropertyListener(objectID: objectID, address: address, block: block)
+    }
+
+    /// デバイスが既に外れている場合は失敗するが、無視してよい。
+    static func removeListener(_ listener: PropertyListener) {
+        _ = AudioObjectRemovePropertyListenerBlock(listener.objectID, &listener.address, DispatchQueue.main, listener.block)
     }
 
     /// システムオブジェクトのプロパティ変化を監視する。handler はメインスレッドで呼ばれる。

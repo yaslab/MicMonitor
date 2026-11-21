@@ -21,6 +21,7 @@ final class MonitorModel {
     }
 
     let deviceManager = AudioDeviceManager()
+    let inputVolume = InputVolumeController()
     let levels = LevelStore()
     let waveform: WaveformHistory
     private let engine: AudioCaptureEngine
@@ -101,6 +102,27 @@ final class MonitorModel {
         set { historySeconds = Int(newValue.rounded()) }
     }
 
+    /// 入力音量スライダーの目盛りの数（両端を含む）。
+    static let inputVolumeTickCount = 7
+    /// 目盛りにこの距離（0...1 の範囲で）まで近づいたら吸着させる。
+    static let inputVolumeSnapDistance: Float = 0.02
+
+    static var inputVolumeTicks: [Float] {
+        (0..<inputVolumeTickCount).map { Float($0) / Float(inputVolumeTickCount - 1) }
+    }
+
+    /// 目盛りの近くなら目盛りの値に、そうでなければそのままの値にする（無段階 + 吸着）。
+    static func snappedInputVolume(_ value: Float) -> Float {
+        let nearest = inputVolumeTicks.min { abs($0 - value) < abs($1 - value) } ?? value
+        return abs(nearest - value) <= inputVolumeSnapDistance ? nearest : value
+    }
+
+    /// Slider 用（入力音量 0...1）。
+    var inputVolumeValue: Float {
+        get { inputVolume.volume ?? 0 }
+        set { inputVolume.setVolume(Self.snappedInputVolume(newValue)) }
+    }
+
     var systemDefaultLabel: String {
         if let name = deviceManager.defaultInputDevice?.name {
             "システム既定（\(name)）"
@@ -176,6 +198,7 @@ final class MonitorModel {
         engine.stop()
         isRunning = false
         activeDevice = device
+        inputVolume.attach(to: device?.id)
         guard let device else {
             activeFormat = nil
             levels.reset()
