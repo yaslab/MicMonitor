@@ -20,9 +20,15 @@ struct MonitorControls: View {
             }
             .disabled(!model.canMonitor)
 
-            Text(caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if let monitorError = model.monitorErrorMessage {
+                Label(monitorError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            } else {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

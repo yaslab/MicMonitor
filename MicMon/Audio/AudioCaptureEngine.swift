@@ -18,7 +18,7 @@ enum CaptureError: LocalizedError {
 }
 
 /// AVAudioEngine で指定デバイスから入力を取り、レベルと波形のストアに流す。
-/// モニター再生が有効なときは、入力をシステム既定の出力にも流す。
+/// モニター再生が有効なときは、別のエンジン（`MonitorPlayback`）でシステム既定の出力にも流す。
 @MainActor
 final class AudioCaptureEngine {
     /// モニター再生に対応する最大の入力チャンネル数。
@@ -27,15 +27,18 @@ final class AudioCaptureEngine {
     private let levels: LevelStore
     private let waveform: WaveformHistory
     private var engine: AVAudioEngine?
-    private var monitorMixer: AVAudioMixerNode?
-    private var configurationObserver: (any NSObjectProtocol)?
+    private var playback: MonitorPlayback?
+    private var configurationObservers: [any NSObjectProtocol] = []
     private var format: CaptureFormat?
 
-    /// `AVAudioEngineConfigurationChange` を受けたときに呼ばれる。
+    /// `AVAudioEngineConfigurationChange` で再構成が必要になったときに呼ばれる。
     var onConfigurationChange: (() -> Void)?
 
+    /// モニター再生を開始できなかったときの理由。計測は続ける。
+    private(set) var monitorError: String?
+
     var monitorVolume: Float = 0.5 {
-        didSet { monitorMixer?.outputVolume = monitorVolume }
+        didSet { playback?.volume = monitorVolume }
     }
 
     init(levels: LevelStore, waveform: WaveformHistory) {
@@ -57,73 +60,93 @@ final class AudioCaptureEngine {
               format.commonFormat == .pcmFormatFloat32, !format.isInterleaved
         else { throw CaptureError.unsupportedFormat }
 
+        // 再生に失敗しても計測は止めない
+        var playback: MonitorPlayback?
+        if monitoring, channels <= Self.maxMonitorChannels {
+            do {
+                playback = try MonitorPlayback(format: format, volume: monitorVolume)
+            } catch {
+                monitorError = "モニター再生を開始できませんでした: \(error.localizedDescription)"
+                MonitorModel.logger.error("Failed to start monitor playback: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+
         levels.configure(channelCount: channels)
         waveform.configure(channelCount: channels, sampleRate: format.sampleRate)
         input.installTap(onBus: 0, bufferSize: 1024, format: format,
-                         block: Self.makeTapBlock(levels: levels, waveform: waveform))
-
-        var mixer: AVAudioMixerNode?
-        if monitoring, channels <= Self.maxMonitorChannels {
-            let node = AVAudioMixerNode()
-            engine.attach(node)
-            engine.connect(input, to: node, format: format)
-            engine.connect(node, to: engine.mainMixerNode, format: nil)
-            node.outputVolume = monitorVolume
-            mixer = node
-        }
+                         block: Self.makeTapBlock(levels: levels, waveform: waveform, playback: playback))
 
         engine.prepare()
         do {
             try engine.start()
         } catch {
             input.removeTap(onBus: 0)
+            playback?.stop()
             throw error
         }
 
         self.engine = engine
-        self.monitorMixer = mixer
-        configurationObserver = NotificationCenter.default.addObserver(
-            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.handleConfigurationChange() }
-        }
+        self.playback = playback
+        observeConfigurationChanges(of: engine)
+        if let playback { observeConfigurationChanges(of: playback.engine) }
+
         let captureFormat = CaptureFormat(sampleRate: format.sampleRate, channelCount: channels)
         self.format = captureFormat
         return captureFormat
     }
 
-    /// 起動直後にも通知が届くことがあるため、実際に止まったかフォーマットが変わったときだけ再構成を求める。
+    func stop() {
+        configurationObservers.forEach(NotificationCenter.default.removeObserver)
+        configurationObservers = []
+        // 先にタップを外して再生への予約を止めてから、再生を止めて解放する（解放は MainActor で行う）
+        if let engine {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+        }
+        engine = nil
+        format = nil
+        playback?.stop()
+        playback = nil
+        monitorError = nil
+    }
+
+    private func observeConfigurationChanges(of engine: AVAudioEngine) {
+        let observer = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.handleConfigurationChange() }
+        }
+        configurationObservers.append(observer)
+    }
+
+    /// 起動直後にも通知が届くことがあるため、実際に止まったか入力フォーマットが変わったときだけ再構成を求める。
+    /// 出力側（モニター再生）は、出力デバイスの変更などでエンジンが止まったときに再構成する。
     private func handleConfigurationChange() {
         guard let engine else { return }
         let inputFormat = engine.inputNode.outputFormat(forBus: 0)
         let current = CaptureFormat(sampleRate: inputFormat.sampleRate, channelCount: Int(inputFormat.channelCount))
-        let needsRestart = !engine.isRunning || current != format
-        MonitorModel.logger.debug("Configuration change: running \(engine.isRunning), format \(current.sampleRate) Hz \(current.channelCount) ch, restart: \(needsRestart)")
+        let playbackStopped = playback.map { !$0.isRunning } ?? false
+        let needsRestart = !engine.isRunning || current != format || playbackStopped
+        MonitorModel.logger.debug("Configuration change: running \(engine.isRunning), format \(current.sampleRate) Hz \(current.channelCount) ch, playback stopped \(playbackStopped), restart: \(needsRestart)")
         if needsRestart { onConfigurationChange?() }
-    }
-
-    func stop() {
-        if let configurationObserver {
-            NotificationCenter.default.removeObserver(configurationObserver)
-            self.configurationObserver = nil
-        }
-        guard let engine else { return }
-        engine.inputNode.removeTap(onBus: 0)
-        engine.stop()
-        self.engine = nil
-        monitorMixer = nil
-        format = nil
     }
 
     /// タップのクロージャは nonisolated な文脈で作る。
     /// MainActor の文脈で作ると、Swift 6 の実行時の分離チェックでタップのスレッドから呼ばれた際にクラッシュする。
-    nonisolated private static func makeTapBlock(levels: LevelStore, waveform: WaveformHistory) -> AVAudioNodeTapBlock {
-        { buffer, _ in
+    ///
+    /// `playback` は弱参照で持つ。タップのクロージャは AVAudioEngine 内部のキューで解放されるため、
+    /// ここで最後の参照を持つと、再生エンジンの解放（内部で同じキューに同期で入る）がそのキュー上で起きて
+    /// デッドロック検出によりクラッシュする。所有は `AudioCaptureEngine.playback`（MainActor）だけにする。
+    nonisolated private static func makeTapBlock(
+        levels: LevelStore, waveform: WaveformHistory, playback: MonitorPlayback?
+    ) -> AVAudioNodeTapBlock {
+        { [weak playback] buffer, _ in
             guard let data = buffer.floatChannelData else { return }
             let frames = Int(buffer.frameLength)
             let channels = Int(buffer.format.channelCount)
             levels.process(data, channelCount: channels, frameCount: frames)
             waveform.process(data, channelCount: channels, frameCount: frames)
+            playback?.enqueue(buffer)
         }
     }
 }

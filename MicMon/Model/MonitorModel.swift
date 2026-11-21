@@ -73,6 +73,8 @@ final class MonitorModel {
     private(set) var activeFormat: CaptureFormat?
     private(set) var isRunning = false
     private(set) var errorMessage: String?
+    /// モニター再生だけが失敗したときの理由（計測は続いている）。
+    private(set) var monitorErrorMessage: String?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -197,6 +199,7 @@ final class MonitorModel {
         pendingRestart?.cancel()
         engine.stop()
         isRunning = false
+        monitorErrorMessage = nil
         activeDevice = device
         inputVolume.attach(to: device?.id)
         guard let device else {
@@ -211,6 +214,7 @@ final class MonitorModel {
             activeFormat = format
             isRunning = true
             errorMessage = nil
+            monitorErrorMessage = engine.monitorError
             Self.logger.info("Started \(device.name, privacy: .public) (id \(device.id)) \(format.sampleRate) Hz \(format.channelCount) ch, monitoring: \(self.monitorEnabled)")
             #if DEBUG
             logSignalAfterStart()

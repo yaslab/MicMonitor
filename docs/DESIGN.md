@@ -49,7 +49,7 @@ MainActor                                         タップのスレッド（AVA
 ContentView ─ TimelineView(.animation)            AVAudioEngine
   ├ DevicePicker                                    inputNode ──tap──▶ LevelStore.process
   ├ LevelMeterSection ◀── levels.read() ───┐           │          └──▶ WaveformHistory.process
-  ├ WaveformSection  ◀── waveform.snapshot()┤           └─(モニター時)─▶ AVAudioMixerNode ─▶ mainMixer ─▶ 出力
+  ├ WaveformSection  ◀── waveform.snapshot()┤           └─(モニター時)─▶ MonitorPlayback（別エンジン）─▶ 出力
   └ MonitorControls                         │
 SettingsView                                │     LevelStore / WaveformHistory は
 MonitorModel ── AudioCaptureEngine ─────────┘     Mutex で保護された Sendable クラス
@@ -63,7 +63,8 @@ MonitorModel ── AudioCaptureEngine ─────────┘     Mutex 
 | `CoreAudioHAL` | HAL プロパティ取得・リスナー登録のヘルパー | nonisolated |
 | `InputVolumeController` | 使用中デバイスの入力音量の読み書きと、外部での変更の監視 | MainActor |
 | `AudioDeviceManager` | 入力デバイス一覧と既定入力デバイスを保持。変化したら `onChange` を呼ぶ | MainActor |
-| `AudioCaptureEngine` | エンジン構築・タップ・モニター接続・停止。構成変更通知を中継 | MainActor（タップ処理は nonisolated） |
+| `AudioCaptureEngine` | エンジン構築・タップ・停止。構成変更通知を中継 | MainActor（タップ処理は nonisolated） |
+| `MonitorPlayback` | 出力専用の AVAudioEngine。タップのバッファをコピーして `AVAudioPlayerNode` で再生 | 予約はタップのスレッド、それ以外は MainActor |
 | `LevelStore` | ch ごとの Peak（前回の読み出し以降の最大値）・RMS・クリップ | Sendable + Mutex |
 | `WaveformHistory` | ch ごとのリングバッファ（ビンごとに Peak と RMS） | Sendable + Mutex |
 | `MeterBallistics` | 表示側の減衰とピークホールド | MainActor（View が所有） |
@@ -104,10 +105,14 @@ ch 数が変わらなければ波形履歴は保持する。
 
 ## 5. モニター再生
 
-- 有効時のみ `inputNode → AVAudioMixerNode（音量） → mainMixerNode → outputNode` を接続する。出力先はシステム既定の出力デバイス。
+- macOS の AVAudioEngine は inputNode と outputNode で 1 つの I/O ユニットを共有する。入力デバイスを指定したエンジンの出力はそのデバイス（入力専用なら 0 ch）になり、別デバイスへの出力は初期化に失敗する（-10875）。
+- そのため再生は**出力専用の別エンジン**（`MonitorPlayback`）で行う。タップで受け取ったバッファをコピーし、`AVAudioPlayerNode.scheduleBuffer` で予約する。出力先はシステム既定の出力デバイスで、サンプルレートの違いは mainMixer が変換する。
+- 再生待ちが 250 ms を超えたら入力を捨て、クロック差で遅延が増え続けないようにする。遅延はタップのバッファ長ぶん（数十〜100 ms 程度）。
+- 再生の開始に失敗しても計測は続け、モニター操作の下にエラーを表示する。
+- 再生側のエンジンが止まったら（出力デバイスの変更など）全体を再構成する。
 - 既定はオフ。ハウリング防止のため、UI にヘッドホン使用の注意を出す。
 - 入力が 3ch 以上のデバイスでは無効にする（ミキサーのチャンネルレイアウトが合わずに例外で落ちるのを避けるため）。必要になったら ch 選択式で対応する。
-- 入力と出力が別デバイスのため、クロックのずれによる軽いノイズは許容する。
+- 入力と出力が別デバイスのため、クロックのずれによる途切れは許容する。
 
 ## 5.1 入力音量
 
@@ -130,7 +135,7 @@ ch 数が変わらなければ波形履歴は保持する。
 MicMon/
   App/MicMonApp.swift
   Audio/AudioInputDevice.swift, CoreAudioHAL.swift, AudioDeviceManager.swift,
-        AudioCaptureEngine.swift, InputVolumeController.swift, LevelStore.swift,
+        AudioCaptureEngine.swift, MonitorPlayback.swift, InputVolumeController.swift, LevelStore.swift,
         WaveformHistory.swift, Decibel.swift
   Model/DeviceSelection.swift, MonitorModel.swift
   Views/ContentView.swift, DevicePicker.swift, LevelMeterView.swift, MeterBallistics.swift,
