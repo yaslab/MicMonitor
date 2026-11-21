@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LevelMeterSection: View {
     let readings: [MeterReading]
+    var showsScale = true
     let onResetClip: () -> Void
 
     private static let labelWidth: CGFloat = 20
@@ -30,11 +31,13 @@ struct LevelMeterSection: View {
                         .help("クリップ表示（クリックで解除）")
                 }
             }
-            HStack(spacing: 8) {
-                Color.clear.frame(width: Self.labelWidth, height: 1)
-                MeterScale()
-                    .frame(height: 12)
-                Color.clear.frame(width: Self.valueWidth + Self.clipWidth + 8, height: 1)
+            if showsScale {
+                HStack(spacing: 8) {
+                    Color.clear.frame(width: Self.labelWidth, height: 1)
+                    MeterScale()
+                        .frame(height: 12)
+                    Color.clear.frame(width: Self.valueWidth + Self.clipWidth + 8, height: 1)
+                }
             }
         }
     }

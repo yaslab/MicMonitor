@@ -3,7 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(MonitorModel.self) private var model
-    @State private var ballistics = MeterBallistics()
+    @Environment(DisplayModeController.self) private var display
 
     var body: some View {
         Group {
@@ -14,13 +14,23 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 560, minHeight: 380)
+        .background(WindowAccessor { display.registerMainWindow($0) })
+        // カード表示中はこのウィンドウを隠すだけなので、ここでは計測を止めない
         .task { await model.start() }
-        .onDisappear { model.stop() }
     }
 
     private var monitor: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DevicePicker()
+            HStack(alignment: .top) {
+                DevicePicker()
+                Spacer()
+                Button {
+                    display.showCard()
+                } label: {
+                    Label("カード表示", systemImage: "rectangle.inset.topright.filled")
+                }
+                .help("最前面に常駐する小さなカードに切り替える（⌘⇧M）")
+            }
             InputVolumeControl()
 
             if let errorMessage = model.errorMessage {
@@ -28,14 +38,7 @@ struct ContentView: View {
                     .foregroundStyle(.red)
             }
 
-            TimelineView(.animation(paused: !model.isRunning)) { context in
-                let readings = ballistics.update(levels: model.levels.read(), now: context.date)
-                let snapshot = model.waveform.snapshot()
-                VStack(alignment: .leading, spacing: 16) {
-                    LevelMeterSection(readings: readings, onResetClip: { model.resetClip() })
-                    WaveformSection(snapshot: snapshot, seconds: model.historySeconds)
-                }
-            }
+            LiveMonitorView(isActive: display.mode == .window)
 
             Divider()
             MonitorControls()
@@ -66,6 +69,8 @@ private struct PermissionDeniedView: View {
 }
 
 #Preview {
+    let model = MonitorModel()
     ContentView()
-        .environment(MonitorModel())
+        .environment(model)
+        .environment(DisplayModeController(model: model))
 }

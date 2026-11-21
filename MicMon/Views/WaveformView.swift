@@ -3,6 +3,7 @@ import SwiftUI
 struct WaveformSection: View {
     let snapshot: WaveformSnapshot
     let seconds: Int
+    var showsTimeAxis = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -16,18 +17,20 @@ struct WaveformSection: View {
                         .frame(minHeight: 40, maxHeight: .infinity)
                 }
             }
-            HStack {
-                Text("-\(seconds)s")
-                Spacer()
-                if seconds > 1 {
-                    Text(String(format: "-%gs", Double(seconds) / 2))
+            if showsTimeAxis {
+                HStack {
+                    Text("-\(seconds)s")
                     Spacer()
+                    if seconds > 1 {
+                        Text(String(format: "-%gs", Double(seconds) / 2))
+                        Spacer()
+                    }
+                    Text("now")
                 }
-                Text("now")
+                .font(.system(size: 9).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .padding(.leading, 28)
             }
-            .font(.system(size: 9).monospacedDigit())
-            .foregroundStyle(.secondary)
-            .padding(.leading, 28)
         }
     }
 }

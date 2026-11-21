@@ -2,15 +2,21 @@ import SwiftUI
 
 /// 選択中デバイスのシステム入力音量。
 struct InputVolumeControl: View {
+    /// カード表示用（ラベルと説明文を省き、スライダーを幅いっぱいにする）。
+    var compact = false
+
     @Environment(MonitorModel.self) private var model
 
     var body: some View {
         @Bindable var model = model
         let volume = model.inputVolume.volume
         HStack(spacing: 8) {
-            Text("入力音量")
+            if !compact {
+                Text("入力音量")
+            }
             Image(systemName: model.inputVolume.isMuted ? "mic.slash" : "mic")
                 .foregroundStyle(.secondary)
+                .help("入力音量（0 でミュート）")
             // 無段階。目盛り（0%, 17%, 33%, 50%, 67%, 83%, 100%）の近くでは吸着する
             Slider(value: $model.inputVolumeValue, in: 0...1) {
                 Text("入力音量")
@@ -20,9 +26,9 @@ struct InputVolumeControl: View {
                 }
             }
             .labelsHidden()
-                .frame(maxWidth: 260)
-                .disabled(!model.inputVolume.isSettable)
-            if model.activeDevice != nil, !model.inputVolume.isSettable {
+            .frame(maxWidth: compact ? .infinity : 260)
+            .disabled(!model.inputVolume.isSettable)
+            if !compact, model.activeDevice != nil, !model.inputVolume.isSettable {
                 Text(volume == nil ? "このデバイスには入力音量がありません" : "このデバイスの入力音量は変更できません")
                     .font(.caption)
                     .foregroundStyle(.secondary)

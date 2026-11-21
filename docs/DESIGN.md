@@ -1,4 +1,4 @@
-# MicMon 設計書 v0.3
+# MicMon 設計書 v0.4
 
 Mac のマイク入力をリアルタイムでモニタリングする macOS アプリ。用途は自分用（デバッグ実行）。
 
@@ -14,18 +14,19 @@ Mac のマイク入力をリアルタイムでモニタリングする macOS ア
 | F4 | 設定 | N（1〜60 秒、既定 10 秒）を設定画面（⌘,）で変更 |
 | F5 | モニター再生 | 入力音をシステム既定の出力デバイスで再生。オン/オフと音量 |
 | F6 | 入力音量 | 選択中デバイスのシステム入力音量（システム設定 > サウンド > 入力 と同じ値）を表示・変更 |
+| F7 | カード表示 | 画面の最前面に常駐する小さなカード（メーター・波形・入力音量）。ウィンドウ表示と切り替え |
 
 ### 1.2 決定事項
 
 - 対象: macOS 26.0 以降のみ。Swift 6 言語モード、Default Actor Isolation は指定なし（nonisolated）
 - メーター: 表示レンジ -60〜0 dBFS、Peak（淡色）と RMS（濃色）、ピークホールド 1.5 秒、クリップ表示（-0.1 dBFS 以上で点灯、クリックで解除）
 - 波形: チャンネルごとに 1 段。符号付き表示（上側が正、下側が負）。縦軸は各側とも dB スケール（中心が -60 dBFS 以下、端が 0 dBFS）
-- ウィンドウ: 通常ウィンドウ 1 枚（`Window` シーン）。閉じたらアプリ終了
+- 表示モード: 通常ウィンドウ 1 枚（`Window` シーン）と、最前面のカード（6.1 節）を切り替える。ウィンドウ表示でウィンドウを閉じたらアプリ終了
 - 入力デバイスの一覧からはプライベートな集約デバイス（AVAudioEngine が既定の入出力を束ねるために自動で作る `CADefaultDeviceAggregate-<pid>-<n>`）を除く。判定はトランスポートの種類が集約で、構成に `kAudioAggregateDeviceIsPrivateKey` があるもの。ユーザーが作った集約デバイスは残す
 - 「システム既定」選択時は OS 側の既定マイク変更に追従
 - 選択中のデバイスが外れたらシステム既定で継続し、再接続されたら元のデバイスに戻す
 - 選択デバイス・N・モニター再生のオン/オフと音量は UserDefaults に保存
-- 対象外: 録音・保存、他のウィンドウ形態（必要なら別途）
+- 対象外: 録音・保存
 - 配布: 自分用。署名・公証は考慮しない
 
 ## 2. 技術選定
@@ -139,18 +140,35 @@ ch 数が変わらなければ波形履歴は保持する。
 - マイク権限が拒否されている場合は、システム設定を開くボタンを出す。
 - 設定（⌘,）: 波形履歴の長さ（スライダー + ステッパー、1〜60 秒）。
 
+### 6.1 カード表示
+
+- 内容: デバイス名（ミュート中はアイコンで表示）、ウィンドウに戻すボタン、ch ごとのメーター（dB 目盛りなし）、波形（時間軸なし）、入力音量スライダー（ラベルなし）。エラーがあれば 2 行まで表示。
+- 切り替え: ウィンドウの「カード表示」ボタン、カードのウィンドウボタン、表示メニュー、⌘⇧M。表示モードは UserDefaults に保存し、次回起動時も同じモードで開く。
+- 実装: AppKit の `NSPanel`（`.floating`、`.nonactivatingPanel`、タイトルバーは透明で非表示）に `NSHostingView` で SwiftUI のビューを載せる。背景は `NSVisualEffectView`（`.hudWindow`、`.behindWindow`）で半透明。
+  - `.nonactivatingPanel`: クリックしても前面のアプリを切り替えない。`hidesOnDeactivate = false` で他のアプリ使用中も表示し続ける。
+- 移動: どこを掴んでもドラッグで移動できる（スライダーやボタンは自分の操作が優先）。標準のドラッグ移動では離した瞬間がわからないため、`isMovable = false` にして SwiftUI の `DragGesture` からマウスの画面座標で自前で動かす。
+- 画面端への吸着: 離したとき、画面の表示領域（メニューバーと Dock を除く）の端から 24pt 以内なら、端から 8pt の位置に吸着する（アニメーション付き）。画面外にはみ出した場合も内側に戻す。
+- サイズ: 端をドラッグして変更できる（最小 260×170、既定 340×220）。位置とサイズは `setFrameAutosaveName` で保存し、初回は画面の右上に置く。
+- メインウィンドウはカード表示中も閉じずに隠す（`orderOut`）。
+  - 隠すと AppKit は最後のウィンドウが閉じられたとみなすため、カード表示中は `applicationShouldTerminateAfterLastWindowClosed` で終了しない。
+  - 隠したまま終了すると、次回の起動時に SwiftUI がメインウィンドウを作らないことがある。そのため起動時はメインウィンドウを待たずにカードを出し、ウィンドウに戻すときにまだ作られていなければ `openWindow` で開く。
+  - Dock のアイコンをクリックしたら、カード表示中ならウィンドウ表示に戻す。
+- 描画: メーターと波形の描画（`LiveMonitorView`）はウィンドウとカードで共有する。`LevelStore.read()` は読むたびに Peak の保持をリセットするため、表示していない側は描画を止める。
+- 計測の開始はウィンドウとカードの両方から呼ばれるため、動作中や開始処理中なら何もしない。カード表示中もウィンドウを隠すだけなので計測は止めない。
+
 ## 7. ファイル構成
 
 ```
 MicMon/
-  App/MicMonApp.swift
+  App/MicMonApp.swift, DisplayModeController.swift
   Audio/AudioInputDevice.swift, CoreAudioHAL.swift, AudioDeviceManager.swift,
         AudioCaptureEngine.swift, SampleRingBuffer.swift, AudioPump.swift, MonitorPlayback.swift,
         InputVolumeController.swift, LevelStore.swift,
         WaveformHistory.swift, Decibel.swift
   Model/DeviceSelection.swift, MonitorModel.swift, TimingProbe.swift（DEBUG のみ・計測用）
   Views/ContentView.swift, DevicePicker.swift, LevelMeterView.swift, MeterBallistics.swift,
-        WaveformView.swift, MonitorControls.swift, InputVolumeControl.swift, SettingsView.swift
+        WaveformView.swift, MonitorControls.swift, InputVolumeControl.swift, SettingsView.swift,
+        LiveMonitorView.swift, CardView.swift, WindowAccessor.swift
 ```
 
 ## 8. 今後

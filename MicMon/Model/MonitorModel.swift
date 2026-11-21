@@ -28,6 +28,7 @@ final class MonitorModel {
     private let defaults: UserDefaults
     @ObservationIgnored private var pendingRestart: Task<Void, Never>?
     @ObservationIgnored private var wantsRunning = false
+    @ObservationIgnored private var isStarting = false
 
     var selection: DeviceSelection {
         didSet {
@@ -146,7 +147,12 @@ final class MonitorModel {
 
     // MARK: - 開始・停止
 
+    /// ウィンドウ表示とカード表示の両方から呼ばれるため、動作中なら何もしない。
     func start() async {
+        // 権限の確認を待っている間にもう一方から呼ばれても、二重に起動しない
+        if isStarting || (wantsRunning && isRunning) { return }
+        isStarting = true
+        defer { isStarting = false }
         wantsRunning = true
         await updatePermission()
         reconcile(force: true)
