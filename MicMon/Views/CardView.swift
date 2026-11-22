@@ -1,11 +1,13 @@
+import AppKit
 import SwiftUI
 
-/// 画面の最前面に常駐する小さなカード。メーター・波形（切り替え可）・スペクトル・入力音量を表示する。
+/// 画面の最前面に常駐する小さなカード。メーター・波形・スペクトル（波形とスペクトルは切り替え可）・入力音量を表示する。
 /// どこを掴んでもドラッグで移動でき、離したときに画面端の近くなら吸着する。
 struct CardView: View {
     @Environment(MonitorModel.self) private var model
     @Environment(DisplayModeController.self) private var display
     @AppStorage("cardShowsWaveform") private var showsWaveform = true
+    @AppStorage("cardShowsSpectrum") private var showsSpectrum = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -15,22 +17,25 @@ struct CardView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 4)
-                Button {
-                    showsWaveform.toggle()
+                SectionToggle(isOn: $showsWaveform, systemImage: "waveform", name: "波形")
+                SectionToggle(isOn: $showsSpectrum, systemImage: "chart.bar.xaxis", name: "スペクトル")
+                Menu {
+                    Button("ウィンドウ表示に切替") {
+                        display.showWindow()
+                    }
+                    Divider()
+                    Button("終了") {
+                        NSApp.terminate(nil)
+                    }
                 } label: {
-                    Image(systemName: "waveform")
-                        .foregroundStyle(showsWaveform ? Color.accentColor : Color.secondary)
+                    Image(systemName: "ellipsis")
                 }
+                .menuStyle(.button)
+                .menuIndicator(.hidden)
                 .buttonStyle(.borderless)
-                .help(showsWaveform ? "波形を隠す" : "波形を表示する")
-                .accessibilityLabel(showsWaveform ? "波形を隠す" : "波形を表示する")
-                Button {
-                    display.showWindow()
-                } label: {
-                    Image(systemName: "macwindow")
-                }
-                .buttonStyle(.borderless)
-                .help("ウィンドウ表示に戻す（⌘⇧M）")
+                .fixedSize()
+                .help("その他")
+                .accessibilityLabel("その他")
             }
 
             if let errorMessage = model.errorMessage {
@@ -40,7 +45,8 @@ struct CardView: View {
                     .lineLimit(2)
             }
 
-            LiveMonitorView(compact: true, showsWaveform: showsWaveform, isActive: display.mode == .card)
+            LiveMonitorView(compact: true, showsWaveform: showsWaveform, showsSpectrum: showsSpectrum,
+                            isActive: display.mode == .card)
             InputVolumeControl(compact: true)
         }
         .padding(12)
@@ -55,5 +61,25 @@ struct CardView: View {
                 .onEnded { _ in display.cardDragEnded() }
         )
         .task { await model.start() }
+    }
+}
+
+/// カードのヘッダーに置く、セクションの表示・非表示を切り替えるボタン。表示中はアクセントカラーにする。
+private struct SectionToggle: View {
+    @Binding var isOn: Bool
+    let systemImage: String
+    let name: String
+
+    var body: some View {
+        let label = isOn ? "\(name)を隠す" : "\(name)を表示する"
+        Button {
+            isOn.toggle()
+        } label: {
+            Image(systemName: systemImage)
+                .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+        }
+        .buttonStyle(.borderless)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }

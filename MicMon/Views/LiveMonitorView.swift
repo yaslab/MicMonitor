@@ -9,6 +9,8 @@ struct LiveMonitorView: View {
     var compact = false
     /// 波形を表示するか。ウィンドウ表示では常に表示し、カード表示では切り替えられる。
     var showsWaveform = true
+    /// スペクトルを表示するか。ウィンドウ表示では常に表示し、カード表示では切り替えられる。
+    var showsSpectrum = true
     var isActive = true
 
     @Environment(MonitorModel.self) private var model
@@ -18,7 +20,6 @@ struct LiveMonitorView: View {
     var body: some View {
         TimelineView(.animation(paused: !model.isRunning || !isActive)) { context in
             let readings = ballistics.update(levels: model.levels.read(), now: context.date)
-            let bands = spectrumBallistics.update(snapshot: model.spectrum.snapshot(), now: context.date)
             VStack(alignment: .leading, spacing: compact ? 8 : 16) {
                 LevelMeterSection(readings: readings, showsScale: !compact, compact: compact,
                                   onResetClip: { ballistics.resetClip() })
@@ -26,7 +27,11 @@ struct LiveMonitorView: View {
                     WaveformSection(snapshot: model.waveform.snapshot(), seconds: model.historySeconds,
                                     compact: compact)
                 }
-                SpectrumSection(bands: bands, compact: compact)
+                if showsSpectrum {
+                    SpectrumSection(bands: spectrumBallistics.update(snapshot: model.spectrum.snapshot(),
+                                                                     now: context.date),
+                                    compact: compact)
+                }
             }
         }
     }
