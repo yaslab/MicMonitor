@@ -1,7 +1,7 @@
 import CoreGraphics
 import SwiftUI
 
-/// スペクトログラム（横軸が時間、縦軸が対数周波数、濃さがレベル）。時間軸は波形とそろえる。
+/// スペクトログラム（横軸が時間、縦軸が対数周波数、色がレベル。色の付け方は設定で選ぶ）。時間軸は波形とそろえる。
 struct SpectrogramSection: View {
     let snapshot: SpectrogramSnapshot
     let seconds: Int
@@ -52,6 +52,8 @@ struct SpectrogramView: View {
     /// グラフの中（左端）に描く周波数の目盛り（カード表示用）。
     var labels: [Double] = []
 
+    @AppStorage(SpectrogramColormap.storageKey) private var colormap = SpectrogramColormap.defaultValue
+
     var body: some View {
         Canvas { context, size in
             let bounds = CGRect(origin: .zero, size: size)
@@ -63,8 +65,8 @@ struct SpectrogramView: View {
             if capacity > 0, snapshot.columnCount > 0, size.width >= 1 {
                 // 1 ピクセル（以上）にまとめる列の数。まとめ方は波形と同じく通し番号で固定する（チラつかないように）
                 let columnsPerPixel = max(1, Int((Double(capacity) / Double(size.width)).rounded(.up)))
-                let accent = Color.accentColor.resolve(in: context.environment)
-                if let image = Self.makeImage(snapshot, columnsPerPixel: columnsPerPixel, color: accent) {
+                let lut = colormap.lookupTable(accent: Color.accentColor.resolve(in: context.environment))
+                if let image = Self.makeImage(snapshot, columnsPerPixel: columnsPerPixel, lut: lut) {
                     let columnWidth = size.width / CGFloat(capacity)
                     let windowStart = snapshot.endIndex - capacity
                     let x = CGFloat(image.firstIndex - windowStart) * columnWidth
@@ -93,18 +95,11 @@ struct SpectrogramView: View {
     /// 1 ピクセル幅が `columnsPerPixel` 列分（その中の最大値）の画像を作る。上端が高い周波数。
     /// `firstIndex` は画像の左端の列の通し番号。
     private static func makeImage(_ snapshot: SpectrogramSnapshot, columnsPerPixel: Int,
-                                  color: Color.Resolved) -> (image: CGImage, firstIndex: Int)? {
+                                  lut: [SpectrogramColormap.Pixel]) -> (image: CGImage, firstIndex: Int)? {
         let rows = snapshot.rowCount
         let firstColumn = snapshot.endIndex - snapshot.columnCount
         let firstIndex = firstColumn / columnsPerPixel * columnsPerPixel
         let width = (snapshot.endIndex - firstIndex + columnsPerPixel - 1) / columnsPerPixel
-
-        // レベル 0...255 を、アクセントカラーの濃さ（乗算済みアルファ）にする
-        let lut: [(UInt8, UInt8, UInt8, UInt8)] = (0..<256).map { level in
-            let alpha = Float(level) / 255
-            func channel(_ value: Float) -> UInt8 { UInt8((min(max(value, 0), 1) * alpha * 255).rounded()) }
-            return (channel(color.red), channel(color.green), channel(color.blue), UInt8(level))
-        }
 
         var pixels = [UInt8](repeating: 0, count: width * rows * 4)
         snapshot.levels.withUnsafeBufferPointer { levels in
@@ -119,12 +114,12 @@ struct SpectrogramView: View {
                         for column in lower..<upper {
                             level = max(level, levels[column * rows + row])
                         }
-                        let (r, g, b, a) = lut[Int(level)]
+                        let pixel = lut[Int(level)]
                         let offset = ((rows - 1 - row) * width + x) * 4
-                        pixels[offset] = r
-                        pixels[offset + 1] = g
-                        pixels[offset + 2] = b
-                        pixels[offset + 3] = a
+                        pixels[offset] = pixel.red
+                        pixels[offset + 1] = pixel.green
+                        pixels[offset + 2] = pixel.blue
+                        pixels[offset + 3] = pixel.alpha
                     }
                 }
             }
