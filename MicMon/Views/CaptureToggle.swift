@@ -14,15 +14,9 @@ struct CaptureToggle: View {
         let help = paused ? "マイクからの入力の計測を再開する（⌘.）" : "マイクからの入力の計測を止め、マイクの使用をやめる（⌘.）"
         let systemImage = paused ? "play.fill" : "pause.fill"
         if compact {
-            Button {
+            IconToggleButton(systemImage: systemImage, isHighlighted: paused, label: title, help: help) {
                 model.togglePause()
-            } label: {
-                Image(systemName: systemImage)
-                    .foregroundStyle(paused ? Color.accentColor : Color.secondary)
             }
-            .buttonStyle(.borderless)
-            .help(help)
-            .accessibilityLabel(title)
         } else {
             Button {
                 model.togglePause()

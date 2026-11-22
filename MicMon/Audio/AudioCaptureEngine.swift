@@ -7,6 +7,12 @@ struct CaptureFormat: Equatable, Sendable {
     let channelCount: Int
 }
 
+extension CaptureFormat {
+    init(_ format: AVAudioFormat) {
+        self.init(sampleRate: format.sampleRate, channelCount: Int(format.channelCount))
+    }
+}
+
 enum CaptureError: LocalizedError {
     case unsupportedFormat
 
@@ -76,6 +82,15 @@ final class AudioCaptureEngine {
                 MonitorModel.logger.error("Failed to start monitor playback: \(error.localizedDescription, privacy: .public)")
             }
         }
+        // ここから先で失敗したら、始めた再生とポンプを止める
+        var pumpTask: Task<Void, Never>?
+        var started = false
+        defer {
+            if !started {
+                pumpTask?.cancel()
+                playback?.stop()
+            }
+        }
 
         levels.configure(channelCount: channels)
         waveform.configure(channelCount: channels, sampleRate: format.sampleRate)
@@ -87,25 +102,13 @@ final class AudioCaptureEngine {
                              waveform: waveform, spectrum: spectrum, playback: playback)
         let sink = AVAudioSinkNode(receiverBlock: Self.makeReceiverBlock(ring: ring))
         engine.attach(sink)
-        do {
-            try engine.connectNode(input, to: sink, format: format)
-        } catch {
-            playback?.stop()
-            throw error
-        }
+        try engine.connectNode(input, to: sink, format: format)
 
         engine.prepare()
-        guard let pumpTask = pump.start() else {
-            playback?.stop()
-            throw CaptureError.unsupportedFormat
-        }
-        do {
-            try engine.start()
-        } catch {
-            pumpTask.cancel()
-            playback?.stop()
-            throw error
-        }
+        pumpTask = pump.start()
+        guard pumpTask != nil else { throw CaptureError.unsupportedFormat }
+        try engine.start()
+        started = true
 
         self.engine = engine
         self.playback = playback
@@ -114,7 +117,7 @@ final class AudioCaptureEngine {
         observeConfigurationChanges(of: engine)
         if let playback { observeConfigurationChanges(of: playback.engine) }
 
-        let captureFormat = CaptureFormat(sampleRate: format.sampleRate, channelCount: channels)
+        let captureFormat = CaptureFormat(format)
         self.format = captureFormat
         return captureFormat
     }
@@ -149,8 +152,7 @@ final class AudioCaptureEngine {
     /// 出力側（モニター再生）は、出力デバイスの変更などでエンジンが止まったときに再構成する。
     private func handleConfigurationChange() {
         guard let engine else { return }
-        let inputFormat = engine.inputNode.outputFormat(forBus: 0)
-        let current = CaptureFormat(sampleRate: inputFormat.sampleRate, channelCount: Int(inputFormat.channelCount))
+        let current = CaptureFormat(engine.inputNode.outputFormat(forBus: 0))
         let playbackStopped = playback.map { !$0.isRunning } ?? false
         let needsRestart = !engine.isRunning || current != format || playbackStopped
         MonitorModel.logger.debug("Configuration change: running \(engine.isRunning), format \(current.sampleRate) Hz \(current.channelCount) ch, playback stopped \(playbackStopped), restart: \(needsRestart)")

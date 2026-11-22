@@ -8,6 +8,8 @@ enum SpectrumScale {
     static let floorDB: Float = -100
     /// 1 オクターブあたりの帯域数。
     static let bandsPerOctave = 12
+    /// 縦の格子線と、ウィンドウ表示の周波数軸の目盛り（位置をそろえるため共通にする）。
+    static let gridFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
 
     /// 周波数を横軸の 0...1 にする。
     static func position(_ frequency: Double) -> Double {
@@ -15,11 +17,11 @@ enum SpectrumScale {
     }
 
     static func normalized(_ db: Float) -> Float {
-        min(max((db - floorDB) / -floorDB, 0), 1)
+        Decibel.normalized(db, floor: floorDB)
     }
 
     static func decibel(_ amplitude: Float) -> Float {
-        amplitude > 0 ? max(floorDB, 20 * log10(amplitude)) : floorDB
+        Decibel.from(amplitude, floor: floorDB)
     }
 
     static func label(_ frequency: Double) -> String {
@@ -42,8 +44,8 @@ final class SpectrumBallistics {
     /// 各帯域の下端・上端の周波数（帯域数 + 1 個）。
     private let edges: [Double]
     private var bands: [SpectrumBand]
-    private var holdTimes: [Date]
-    private var lastUpdate: Date?
+    private var holds: [PeakHold]
+    private var clock = FrameClock()
 
     init() {
         let octaves = log2(SpectrumScale.maxFrequency / SpectrumScale.minFrequency)
@@ -53,12 +55,11 @@ final class SpectrumBallistics {
         }
         bands = Array(repeating: SpectrumBand(levelDB: SpectrumScale.floorDB, holdDB: SpectrumScale.floorDB),
                       count: count)
-        holdTimes = Array(repeating: .distantPast, count: count)
+        holds = Array(repeating: PeakHold(SpectrumScale.floorDB), count: count)
     }
 
     func update(snapshot: SpectrumSnapshot, now: Date) -> [SpectrumBand] {
-        let dt = Float(min(max(lastUpdate.map { now.timeIntervalSince($0) } ?? 0, 0), 0.25))
-        lastUpdate = now
+        let dt = clock.step(to: now)
         let decay = Self.releaseDBPerSecond * dt
         let holdDecay = Self.holdReleaseDBPerSecond * dt
         let amplitudes = snapshot.amplitudes
@@ -67,15 +68,9 @@ final class SpectrumBallistics {
         for i in bands.indices {
             let db = SpectrumScale.decibel(bandAmplitude(amplitudes, binWidth: binWidth,
                                                          lower: edges[i], upper: edges[i + 1]))
-            var band = bands[i]
-            band.levelDB = max(db, band.levelDB - decay)
-            if db >= band.holdDB {
-                band.holdDB = db
-                holdTimes[i] = now
-            } else if now.timeIntervalSince(holdTimes[i]) > Self.holdSeconds {
-                band.holdDB = max(band.levelDB, band.holdDB - holdDecay)
-            }
-            bands[i] = band
+            let level = max(db, bands[i].levelDB - decay)
+            holds[i].update(peak: db, level: level, release: holdDecay, holdSeconds: Self.holdSeconds, now: now)
+            bands[i] = SpectrumBand(levelDB: level, holdDB: holds[i].value)
         }
         return bands
     }
@@ -101,7 +96,6 @@ struct SpectrumSection: View {
     let bands: [SpectrumBand]
     var compact = false
 
-    private static let axisFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
     private static let compactAxisFrequencies: [Double] = [100, 1000, 10_000]
     private static let gutterWidth: CGFloat = 20
     /// カード表示での高さ。カードの波形も 1 段をこの高さにそろえる。
@@ -128,7 +122,7 @@ struct SpectrumSection: View {
                     SpectrumView(bands: bands, labels: [], showsGrid: true)
                 }
                 .frame(height: 120)
-                FrequencyAxis(frequencies: Self.axisFrequencies)
+                FrequencyAxis(frequencies: SpectrumScale.gridFrequencies)
                     .frame(height: 10)
                     .padding(.leading, Self.gutterWidth + 8)
             }
@@ -161,7 +155,6 @@ struct SpectrumView: View {
     var showsGrid = true
 
     private static let gridDB: [Float] = [-20, -40, -60, -80]
-    private static let gridFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
 
     var body: some View {
         Canvas { context, size in
@@ -171,7 +164,7 @@ struct SpectrumView: View {
             func y(_ db: Float) -> CGFloat { size.height * (1 - CGFloat(SpectrumScale.normalized(db))) }
 
             var grid = Path()
-            for frequency in Self.gridFrequencies {
+            for frequency in SpectrumScale.gridFrequencies {
                 let x = CGFloat(SpectrumScale.position(frequency)) * size.width
                 grid.move(to: CGPoint(x: x, y: 0))
                 grid.addLine(to: CGPoint(x: x, y: size.height))

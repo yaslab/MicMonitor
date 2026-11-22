@@ -167,8 +167,7 @@ final class MonitorModel {
         pendingRestart?.cancel()
         engine.stop()
         isRunning = false
-        levels.reset()
-        spectrum.reset()
+        resetMeters()
     }
 
     /// 計測を止める。オーディオエンジンを解放するので、マイクの使用も止まる（モニター再生も止まる）。
@@ -236,10 +235,7 @@ final class MonitorModel {
         activeDevice = device
         inputVolume.attach(to: device?.id)
         guard let device else {
-            activeFormat = nil
-            levels.reset()
-        spectrum.reset()
-            errorMessage = "入力デバイスが見つかりません。"
+            fail("入力デバイスが見つかりません。")
             Self.logger.error("No input device to start")
             return
         }
@@ -254,12 +250,22 @@ final class MonitorModel {
             logSignalAfterStart()
             #endif
         } catch {
-            activeFormat = nil
-            levels.reset()
-        spectrum.reset()
-            errorMessage = "「\(device.name)」を開始できませんでした: \(error.localizedDescription)"
+            fail("「\(device.name)」を開始できませんでした: \(error.localizedDescription)")
             Self.logger.error("Failed to start \(device.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    /// 開始できなかったときに、表示をリセットして理由を出す。
+    private func fail(_ message: String) {
+        activeFormat = nil
+        resetMeters()
+        errorMessage = message
+    }
+
+    /// メーターとスペクトルの保持を消す（波形は止めた時点のまま残す）。
+    private func resetMeters() {
+        levels.reset()
+        spectrum.reset()
     }
 
     #if DEBUG

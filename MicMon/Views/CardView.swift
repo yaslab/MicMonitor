@@ -75,15 +75,9 @@ private struct SectionToggle: View {
     let name: String
 
     var body: some View {
-        let label = isOn ? "\(name)を隠す" : "\(name)を表示する"
-        Button {
+        IconToggleButton(systemImage: systemImage, isHighlighted: isOn,
+                         label: isOn ? "\(name)を隠す" : "\(name)を表示する") {
             isOn.toggle()
-        } label: {
-            Image(systemName: systemImage)
-                .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
         }
-        .buttonStyle(.borderless)
-        .help(label)
-        .accessibilityLabel(label)
     }
 }

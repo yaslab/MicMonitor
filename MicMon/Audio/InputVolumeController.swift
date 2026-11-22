@@ -78,23 +78,21 @@ final class InputVolumeController {
         if let volume, volume > 0 { volumeBeforeMute = volume }
         if muteElements.isEmpty {
             // ミュートを持たないデバイスは最小ゲインにするしかない
-            for element in elements { CoreAudioHAL.setInputVolume(deviceID, element: element, 0) }
-            volume = 0
+            setAllVolumes(0, on: deviceID)
         } else {
             // 音量はそのまま残し、ミュートだけをオンにする（解除すれば元の音量に戻る）
-            for element in muteElements { CoreAudioHAL.setInputMuted(deviceID, element: element, true) }
+            setAllMuted(true, on: deviceID)
             isMuted = true
-            volume = 0
         }
+        volume = 0
     }
 
     private func unmute() {
         guard let deviceID, isSettable else { return }
-        for element in muteElements { CoreAudioHAL.setInputMuted(deviceID, element: element, false) }
+        setAllMuted(false, on: deviceID)
         // スライダーで 0 にしてミュートした場合などは音量自体が 0 なので、ミュート前の音量に戻す
         if (hardwareVolume() ?? 0) <= 0 {
-            let restored = volumeBeforeMute ?? Self.defaultRestoreVolume
-            for element in elements { CoreAudioHAL.setInputVolume(deviceID, element: element, restored) }
+            setAllVolumes(volumeBeforeMute ?? Self.defaultRestoreVolume, on: deviceID)
         }
         volumeBeforeMute = nil
         isMuted = false
@@ -119,15 +117,27 @@ final class InputVolumeController {
             volumeBeforeMute = nil
         }
 
-        var succeeded = elements.map { CoreAudioHAL.setInputVolume(deviceID, element: $0, value) }
+        var succeeded = setAllVolumes(value, on: deviceID)
         if !muteElements.isEmpty, mute != isMuted {
-            succeeded += muteElements.map { CoreAudioHAL.setInputMuted(deviceID, element: $0, mute) }
+            succeeded = setAllMuted(mute, on: deviceID) && succeeded
         }
-        if succeeded.contains(false) {
+        if !succeeded {
             Self.logger.error("Failed to set input volume/mute on device \(deviceID)")
         }
         volume = value
         isMuted = mute
+    }
+
+    /// 音量を持つ全要素に同じ値を設定する。途中で失敗しても残りの要素にも設定し、すべて成功したら true。
+    @discardableResult
+    private func setAllVolumes(_ value: Float, on deviceID: AudioDeviceID) -> Bool {
+        elements.map { CoreAudioHAL.setInputVolume(deviceID, element: $0, value) }.allSatisfy { $0 }
+    }
+
+    /// ミュートを持つ全要素に同じ状態を設定する。途中で失敗しても残りの要素にも設定し、すべて成功したら true。
+    @discardableResult
+    private func setAllMuted(_ muted: Bool, on deviceID: AudioDeviceID) -> Bool {
+        muteElements.map { CoreAudioHAL.setInputMuted(deviceID, element: $0, muted) }.allSatisfy { $0 }
     }
 
     private func detach() {

@@ -13,6 +13,44 @@ enum CoreAudioHAL {
         AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
     }
 
+    // MARK: - 汎用の読み書き
+
+    /// 固定長のプロパティを読む。`initial` は読み込み先の初期値（型と大きさを決める）。
+    private static func value<T>(_ id: AudioObjectID, _ address: AudioObjectPropertyAddress, initial: T) -> T? {
+        var addr = address
+        var value = initial
+        var size = UInt32(MemoryLayout<T>.size)
+        let status = withUnsafeMutablePointer(to: &value) { AudioObjectGetPropertyData(id, &addr, 0, nil, &size, $0) }
+        return status == noErr ? value : nil
+    }
+
+    /// CF オブジェクト（CFString・CFDictionary など）のプロパティを読む。HAL は +1 で返す。
+    private static func object<T: AnyObject>(_ id: AudioObjectID, _ address: AudioObjectPropertyAddress) -> T? {
+        guard let unmanaged = value(id, address, initial: Unmanaged<T>?.none) ?? nil else { return nil }
+        return unmanaged.takeRetainedValue()
+    }
+
+    private static func setValue<T>(_ id: AudioObjectID, _ address: AudioObjectPropertyAddress, _ newValue: T) -> Bool {
+        var addr = address
+        let status = withUnsafePointer(to: newValue) {
+            AudioObjectSetPropertyData(id, &addr, 0, nil, UInt32(MemoryLayout<T>.size), $0)
+        }
+        return status == noErr
+    }
+
+    private static func hasProperty(_ id: AudioObjectID, _ address: AudioObjectPropertyAddress) -> Bool {
+        var addr = address
+        return AudioObjectHasProperty(id, &addr)
+    }
+
+    private static func isSettable(_ id: AudioObjectID, _ address: AudioObjectPropertyAddress) -> Bool {
+        var addr = address
+        var settable: DarwinBoolean = false
+        return AudioObjectIsPropertySettable(id, &addr, &settable) == noErr && settable.boolValue
+    }
+
+    // MARK: - デバイス
+
     static func deviceIDs() -> [AudioDeviceID] {
         var addr = address(kAudioHardwarePropertyDevices)
         var size: UInt32 = 0
@@ -23,23 +61,14 @@ enum CoreAudioHAL {
     }
 
     static func defaultInputDeviceID() -> AudioDeviceID? {
-        var addr = address(kAudioHardwarePropertyDefaultInputDevice)
-        var id = AudioDeviceID(kAudioObjectUnknown)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        let status = AudioObjectGetPropertyData(systemObject, &addr, 0, nil, &size, &id)
-        guard status == noErr, id != kAudioObjectUnknown else { return nil }
-        return id
+        let id = value(systemObject, address(kAudioHardwarePropertyDefaultInputDevice),
+                       initial: AudioDeviceID(kAudioObjectUnknown))
+        return id == kAudioObjectUnknown ? nil : id
     }
 
     static func string(_ id: AudioObjectID, _ selector: AudioObjectPropertySelector) -> String? {
-        var addr = address(selector)
-        var value: Unmanaged<CFString>?
-        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        let status = withUnsafeMutablePointer(to: &value) { pointer in
-            AudioObjectGetPropertyData(id, &addr, 0, nil, &size, pointer)
-        }
-        guard status == noErr, let value else { return nil }
-        return value.takeRetainedValue() as String
+        let value: CFString? = object(id, address(selector))
+        return value as String?
     }
 
     static func inputChannelCount(_ id: AudioDeviceID) -> Int {
@@ -54,11 +83,7 @@ enum CoreAudioHAL {
     }
 
     static func transportType(_ id: AudioDeviceID) -> UInt32? {
-        var addr = address(kAudioDevicePropertyTransportType)
-        var value: UInt32 = 0
-        var size = UInt32(MemoryLayout<UInt32>.size)
-        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
-        return value
+        value(id, address(kAudioDevicePropertyTransportType), initial: UInt32(0))
     }
 
     /// プライベートな集約デバイスか。
@@ -67,16 +92,10 @@ enum CoreAudioHAL {
     /// 作成したプロセスにしか見えず、エンジンの作り直しで消えるため、入力デバイスの候補から除く。
     /// ユーザーが Audio MIDI 設定で作った集約デバイスはプライベートではないので残る。
     static func isPrivateAggregate(_ id: AudioDeviceID) -> Bool {
-        guard transportType(id) == kAudioDeviceTransportTypeAggregate else { return false }
-        var addr = address(kAudioAggregateDevicePropertyComposition)
-        var value: Unmanaged<CFDictionary>?
-        var size = UInt32(MemoryLayout<Unmanaged<CFDictionary>?>.size)
-        let status = withUnsafeMutablePointer(to: &value) { pointer in
-            AudioObjectGetPropertyData(id, &addr, 0, nil, &size, pointer)
-        }
-        guard status == noErr, let value else { return false }
-        let composition = value.takeRetainedValue() as NSDictionary
-        return (composition[kAudioAggregateDeviceIsPrivateKey] as? NSNumber)?.boolValue ?? false
+        guard transportType(id) == kAudioDeviceTransportTypeAggregate,
+              let composition: CFDictionary = object(id, address(kAudioAggregateDevicePropertyComposition))
+        else { return false }
+        return ((composition as NSDictionary)[kAudioAggregateDeviceIsPrivateKey] as? NSNumber)?.boolValue ?? false
     }
 
     // MARK: - 入力音量
@@ -87,46 +106,37 @@ enum CoreAudioHAL {
 
     /// 入力音量を持つ要素。マスター（要素 0）があればそれだけ、なければ音量を持つチャンネル（要素 1...n）。
     static func inputVolumeElements(_ id: AudioDeviceID) -> [AudioObjectPropertyElement] {
-        var master = inputVolumeAddress(element: kAudioObjectPropertyElementMain)
-        if AudioObjectHasProperty(id, &master) { return [kAudioObjectPropertyElementMain] }
+        if hasProperty(id, inputVolumeAddress(element: kAudioObjectPropertyElementMain)) {
+            return [kAudioObjectPropertyElementMain]
+        }
         let channels = inputChannelCount(id)
         guard channels > 0 else { return [] }
-        return (1...UInt32(channels)).filter { element in
-            var addr = inputVolumeAddress(element: element)
-            return AudioObjectHasProperty(id, &addr)
-        }
+        return (1...UInt32(channels)).filter { hasProperty(id, inputVolumeAddress(element: $0)) }
     }
 
     static func isInputVolumeSettable(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Bool {
-        var addr = inputVolumeAddress(element: element)
-        var settable: DarwinBoolean = false
-        return AudioObjectIsPropertySettable(id, &addr, &settable) == noErr && settable.boolValue
+        isSettable(id, inputVolumeAddress(element: element))
     }
 
     static func inputVolume(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Float? {
-        var addr = inputVolumeAddress(element: element)
-        var value: Float32 = 0
-        var size = UInt32(MemoryLayout<Float32>.size)
-        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
-        return value
+        value(id, inputVolumeAddress(element: element), initial: Float32(0))
+    }
+
+    @discardableResult
+    static func setInputVolume(_ id: AudioDeviceID, element: AudioObjectPropertyElement, _ volume: Float) -> Bool {
+        setValue(id, inputVolumeAddress(element: element), Float32(min(max(volume, 0), 1)))
     }
 
     /// 入力音量の dB 値（デバイスが dB 換算に対応していない場合は nil）。
     static func inputVolumeDecibels(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Float? {
-        var addr = address(kAudioDevicePropertyVolumeDecibels, scope: kAudioObjectPropertyScopeInput, element: element)
-        var value: Float32 = 0
-        var size = UInt32(MemoryLayout<Float32>.size)
-        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
-        return value
+        value(id, address(kAudioDevicePropertyVolumeDecibels, scope: kAudioObjectPropertyScopeInput, element: element),
+              initial: Float32(0))
     }
 
     /// 入力音量の dB の範囲。
     static func inputVolumeDecibelRange(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> ClosedRange<Float>? {
-        var addr = address(kAudioDevicePropertyVolumeRangeDecibels, scope: kAudioObjectPropertyScopeInput, element: element)
-        var range = AudioValueRange()
-        var size = UInt32(MemoryLayout<AudioValueRange>.size)
-        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &range) == noErr,
-              range.mMinimum <= range.mMaximum else { return nil }
+        let addr = address(kAudioDevicePropertyVolumeRangeDecibels, scope: kAudioObjectPropertyScopeInput, element: element)
+        guard let range = value(id, addr, initial: AudioValueRange()), range.mMinimum <= range.mMaximum else { return nil }
         return Float(range.mMinimum)...Float(range.mMaximum)
     }
 
@@ -137,34 +147,17 @@ enum CoreAudioHAL {
     }
 
     static func isInputMuteSettable(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Bool {
-        var addr = inputMuteAddress(element: element)
-        guard AudioObjectHasProperty(id, &addr) else { return false }
-        var settable: DarwinBoolean = false
-        return AudioObjectIsPropertySettable(id, &addr, &settable) == noErr && settable.boolValue
+        let addr = inputMuteAddress(element: element)
+        return hasProperty(id, addr) && isSettable(id, addr)
     }
 
     static func isInputMuted(_ id: AudioDeviceID, element: AudioObjectPropertyElement) -> Bool? {
-        var addr = inputMuteAddress(element: element)
-        var value: UInt32 = 0
-        var size = UInt32(MemoryLayout<UInt32>.size)
-        guard AudioObjectGetPropertyData(id, &addr, 0, nil, &size, &value) == noErr else { return nil }
-        return value != 0
+        value(id, inputMuteAddress(element: element), initial: UInt32(0)).map { $0 != 0 }
     }
 
     @discardableResult
     static func setInputMuted(_ id: AudioDeviceID, element: AudioObjectPropertyElement, _ muted: Bool) -> Bool {
-        var addr = inputMuteAddress(element: element)
-        var value: UInt32 = muted ? 1 : 0
-        let size = UInt32(MemoryLayout<UInt32>.size)
-        return AudioObjectSetPropertyData(id, &addr, 0, nil, size, &value) == noErr
-    }
-
-    @discardableResult
-    static func setInputVolume(_ id: AudioDeviceID, element: AudioObjectPropertyElement, _ volume: Float) -> Bool {
-        var addr = inputVolumeAddress(element: element)
-        var value = Float32(min(max(volume, 0), 1))
-        let size = UInt32(MemoryLayout<Float32>.size)
-        return AudioObjectSetPropertyData(id, &addr, 0, nil, size, &value) == noErr
+        setValue(id, inputMuteAddress(element: element), UInt32(muted ? 1 : 0))
     }
 
     // MARK: - リスナー
@@ -183,12 +176,14 @@ enum CoreAudioHAL {
     }
 
     /// 任意のオブジェクトのプロパティ変化を監視する。handler はメインスレッドで呼ばれる。
+    @discardableResult
     static func addListener(
         _ objectID: AudioObjectID,
         address: AudioObjectPropertyAddress,
         handler: @escaping @MainActor @Sendable () -> Void
     ) -> PropertyListener? {
         var addr = address
+        // nonisolated な文脈でクロージャを作り、MainActor 分離の実行時チェックを避ける。
         let block: AudioObjectPropertyListenerBlock = { _, _ in
             MainActor.assumeIsolated { handler() }
         }
@@ -202,16 +197,11 @@ enum CoreAudioHAL {
     }
 
     /// システムオブジェクトのプロパティ変化を監視する。handler はメインスレッドで呼ばれる。
-    /// アプリの寿命と同じだけ使う前提のため、解除の API は用意していない。
+    /// アプリの寿命と同じだけ使う前提のため、解除しない（登録したリスナーは捨てる）。
     static func addSystemListener(
         _ selector: AudioObjectPropertySelector,
         handler: @escaping @MainActor @Sendable () -> Void
     ) {
-        var addr = address(selector)
-        // nonisolated な文脈でクロージャを作り、MainActor 分離の実行時チェックを避ける。
-        let block: AudioObjectPropertyListenerBlock = { _, _ in
-            MainActor.assumeIsolated { handler() }
-        }
-        _ = AudioObjectAddPropertyListenerBlock(systemObject, &addr, DispatchQueue.main, block)
+        addListener(systemObject, address: address(selector), handler: handler)
     }
 }
