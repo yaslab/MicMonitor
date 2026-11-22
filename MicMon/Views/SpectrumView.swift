@@ -34,7 +34,7 @@ struct SpectrumBand: Equatable {
     var holdDB: Float
 }
 
-/// FFT のビンを対数間隔の帯域にまとめ、表示の減衰とピークホールドを行う。描画フレームごとに `update` を呼ぶ。
+/// `SpectrumBands` でまとめた帯域ごとに、表示の減衰とピークホールドを行う。描画フレームごとに `update` を呼ぶ。
 @MainActor
 final class SpectrumBallistics {
     static let releaseDBPerSecond: Float = 60

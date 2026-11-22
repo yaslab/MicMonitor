@@ -23,7 +23,7 @@ enum CaptureError: LocalizedError {
     }
 }
 
-/// AVAudioEngine で指定デバイスから入力を取り、レベルと波形のストアに流す。
+/// AVAudioEngine で指定デバイスから入力を取り、レベル・波形・スペクトル・スペクトログラムのストアに流す。
 /// モニター再生が有効なときは、別のエンジン（`MonitorPlayback`）でシステム既定の出力にも流す。
 @MainActor
 final class AudioCaptureEngine {
