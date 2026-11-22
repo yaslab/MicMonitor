@@ -53,6 +53,7 @@ struct SpectrogramView: View {
     var labels: [Double] = []
 
     @AppStorage(SpectrogramColormap.storageKey) private var colormap = SpectrogramColormap.defaultValue
+    @State private var imageCache = SpectrogramImageCache()
 
     var body: some View {
         Canvas { context, size in
@@ -65,8 +66,9 @@ struct SpectrogramView: View {
             if capacity > 0, snapshot.columnCount > 0, size.width >= 1 {
                 // 1 ピクセル（以上）にまとめる列の数。まとめ方は波形と同じく通し番号で固定する（チラつかないように）
                 let columnsPerPixel = max(1, Int((Double(capacity) / Double(size.width)).rounded(.up)))
-                let lut = colormap.lookupTable(accent: Color.accentColor.resolve(in: context.environment))
-                if let image = Self.makeImage(snapshot, columnsPerPixel: columnsPerPixel, lut: lut) {
+                let accent = Color.accentColor.resolve(in: context.environment)
+                if let image = imageCache.image(for: snapshot, columnsPerPixel: columnsPerPixel,
+                                                colormap: colormap, accent: accent) {
                     let columnWidth = size.width / CGFloat(capacity)
                     let windowStart = snapshot.endIndex - capacity
                     let x = CGFloat(image.firstIndex - windowStart) * columnWidth
@@ -91,47 +93,132 @@ struct SpectrogramView: View {
             }
         }
     }
+}
 
-    /// 1 ピクセル幅が `columnsPerPixel` 列分（その中の最大値）の画像を作る。上端が高い周波数。
-    /// `firstIndex` は画像の左端の列の通し番号。
-    private static func makeImage(_ snapshot: SpectrogramSnapshot, columnsPerPixel: Int,
-                                  lut: [SpectrogramColormap.Pixel]) -> (image: CGImage, firstIndex: Int)? {
-        let rows = snapshot.rowCount
+/// スペクトログラムの画像を、新しく届いた列の分だけ描き足して使い回す。
+///
+/// 画像の 1 ピクセル幅は `columnsPerPixel` 列分（その中の最大値）で、まとめ方は通し番号で固定している。
+/// そのため、届き終わった列のピクセルはあとから変わらない。新しい列が届いたら画素を左にずらし、
+/// 最新の列を含むピクセルだけを計算し直す。列が増えていないフレームは前の画像をそのまま使う。
+/// まとめる列の数・容量・カラーマップ・アクセントカラーが変わったら作り直す。
+/// Canvas の描画（メインスレッド）からだけ使う。
+private final class SpectrogramImageCache {
+    private struct Key: Equatable {
+        var columnsPerPixel: Int
+        var capacity: Int
+        var rowCount: Int
+        var colormap: SpectrogramColormap
+        var accent: Color.Resolved
+    }
+
+    private static let transparent = SpectrogramColormap.Pixel(red: 0, green: 0, blue: 0, alpha: 0)
+
+    private var key: Key?
+    private var lut: [SpectrogramColormap.Pixel] = []
+    /// 画像の幅（ピクセル）。表示範囲（容量ぶんの列）がピクセルの境目をまたいでも収まるよう 1 つ多く取る。
+    private var width = 0
+    private var rows = 0
+    /// RGBA（乗算済みアルファ）。上端が高い周波数。列が届いていないピクセルは透明（0）。
+    private var pixels: [UInt8] = []
+    /// 左端のピクセルの番号（列の通し番号 / `columnsPerPixel`）。
+    private var startPixel = 0
+    /// この通し番号の手前までの列を画素に反映した。
+    private var drawnEnd = 0
+    private var image: CGImage?
+
+    /// `firstIndex` は画像の左端に当たる列の通し番号。`snapshot` には列が 1 つ以上あること。
+    func image(for snapshot: SpectrogramSnapshot, columnsPerPixel: Int, colormap: SpectrogramColormap,
+               accent: Color.Resolved) -> (image: CGImage, firstIndex: Int)? {
+        let newKey = Key(columnsPerPixel: columnsPerPixel, capacity: snapshot.capacity,
+                         rowCount: snapshot.rowCount, colormap: colormap, accent: accent)
         let firstColumn = snapshot.endIndex - snapshot.columnCount
-        let firstIndex = firstColumn / columnsPerPixel * columnsPerPixel
-        let width = (snapshot.endIndex - firstIndex + columnsPerPixel - 1) / columnsPerPixel
+        // 最新の列を右端のピクセルに置く
+        let newStartPixel = (snapshot.endIndex - 1) / columnsPerPixel - width + 1
 
-        var pixels = [UInt8](repeating: 0, count: width * rows * 4)
+        if newKey != key {
+            key = newKey
+            lut = colormap.lookupTable(accent: accent)
+            width = (snapshot.capacity + columnsPerPixel - 1) / columnsPerPixel + 1
+            rows = snapshot.rowCount
+            pixels = [UInt8](repeating: 0, count: width * rows * 4)
+            startPixel = (snapshot.endIndex - 1) / columnsPerPixel - width + 1
+            drawnEnd = firstColumn
+            image = nil
+        } else if snapshot.endIndex == drawnEnd, let image {
+            return (image, startPixel * columnsPerPixel)
+        } else if snapshot.endIndex < drawnEnd {
+            // 別の履歴に変わった（通常は起きない）。全部描き直す
+            clear()
+            startPixel = newStartPixel
+            drawnEnd = firstColumn
+        } else {
+            scroll(by: newStartPixel - startPixel)
+            startPixel = newStartPixel
+        }
+        drawnEnd = max(drawnEnd, firstColumn, startPixel * columnsPerPixel)
+
         snapshot.levels.withUnsafeBufferPointer { levels in
             pixels.withUnsafeMutableBufferPointer { pixels in
-                for x in 0..<width {
-                    let groupStart = firstIndex + x * columnsPerPixel
+                // 途中までしか届いていなかったピクセル（drawnEnd を含むもの）から右端までを計算し直す
+                for pixel in (drawnEnd / columnsPerPixel)...((snapshot.endIndex - 1) / columnsPerPixel) {
+                    let x = pixel - startPixel
+                    let groupStart = pixel * columnsPerPixel
                     let lower = max(groupStart, firstColumn) - firstColumn
                     let upper = min(groupStart + columnsPerPixel, snapshot.endIndex) - firstColumn
-                    guard lower < upper else { continue }
                     for row in 0..<rows {
-                        var level: UInt8 = 0
-                        for column in lower..<upper {
-                            level = max(level, levels[column * rows + row])
+                        var color = Self.transparent
+                        if lower < upper {
+                            var level: UInt8 = 0
+                            for column in lower..<upper {
+                                level = max(level, levels[column * rows + row])
+                            }
+                            color = lut[Int(level)]
                         }
-                        let pixel = lut[Int(level)]
                         let offset = ((rows - 1 - row) * width + x) * 4
-                        pixels[offset] = pixel.red
-                        pixels[offset + 1] = pixel.green
-                        pixels[offset + 2] = pixel.blue
-                        pixels[offset + 3] = pixel.alpha
+                        pixels[offset] = color.red
+                        pixels[offset + 1] = color.green
+                        pixels[offset + 2] = color.blue
+                        pixels[offset + 3] = color.alpha
                     }
                 }
             }
         }
+        drawnEnd = snapshot.endIndex
 
         guard let provider = CGDataProvider(data: Data(pixels) as CFData),
               let space = CGColorSpace(name: CGColorSpace.sRGB),
-              let image = CGImage(width: width, height: rows, bitsPerComponent: 8, bitsPerPixel: 32,
-                                  bytesPerRow: width * 4, space: space,
-                                  bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
-                                  provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
-        else { return nil }
-        return (image, firstIndex)
+              let newImage = CGImage(width: width, height: rows, bitsPerComponent: 8, bitsPerPixel: 32,
+                                     bytesPerRow: width * 4, space: space,
+                                     bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                                     provider: provider, decode: nil, shouldInterpolate: true, intent: .defaultIntent)
+        else {
+            image = nil
+            return nil
+        }
+        image = newImage
+        return (newImage, startPixel * columnsPerPixel)
+    }
+
+    /// 画素を `count` ピクセル左にずらし、空いた右側を透明にする。
+    private func scroll(by count: Int) {
+        guard count > 0 else { return }
+        guard count < width else {
+            clear()
+            return
+        }
+        let rowBytes = width * 4
+        let shiftBytes = count * 4
+        pixels.withUnsafeMutableBytes { bytes in
+            let base = bytes.baseAddress!
+            for row in 0..<rows {
+                let start = base + row * rowBytes
+                memmove(start, start + shiftBytes, rowBytes - shiftBytes)
+                memset(start + rowBytes - shiftBytes, 0, shiftBytes)
+            }
+        }
+    }
+
+    private func clear() {
+        pixels.withUnsafeMutableBytes { _ = $0.initializeMemory(as: UInt8.self, repeating: 0) }
     }
 }

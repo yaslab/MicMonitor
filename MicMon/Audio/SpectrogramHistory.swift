@@ -13,6 +13,16 @@ struct SpectrogramSnapshot: Sendable {
     var columnCount: Int { rowCount > 0 ? levels.count / rowCount : 0 }
 }
 
+/// 同じ `SpectrogramHistory` から取ったスナップショットは、通し番号・容量・列数が同じなら中身も同じ
+/// （列は追記されるだけで、通し番号は戻らない）。SwiftUI はビューの入力が変わったかを毎フレーム比べるので、
+/// `levels`（60 秒で 36 万要素）を要素ごとに比べないよう、これらだけを比べる。
+extension SpectrogramSnapshot: Equatable {
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.endIndex == rhs.endIndex && lhs.capacity == rhs.capacity && lhs.rowCount == rhs.rowCount
+            && lhs.levels.count == rhs.levels.count
+    }
+}
+
 /// 一定間隔でスペクトルを求め、対数間隔の帯域にまとめて量子化した列をリングバッファに保持する。
 ///
 /// 書き込みはポンプのタスク、`snapshot()` は MainActor から呼ぶ。FFT は列を作るときにポンプのタスクで行う
