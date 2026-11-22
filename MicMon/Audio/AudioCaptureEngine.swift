@@ -58,7 +58,7 @@ final class AudioCaptureEngine {
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
-        try input.auAudioUnit.setDeviceID(deviceID)
+        try input.withAUAudioUnit { unit in try unit.setDeviceID(deviceID) }
 
         let format = input.outputFormat(forBus: 0)
         let channels = Int(format.channelCount)
@@ -91,7 +91,12 @@ final class AudioCaptureEngine {
         }
         let sink = AVAudioSinkNode(receiverBlock: Self.makeReceiverBlock(ring: ring))
         engine.attach(sink)
-        engine.connect(input, to: sink, format: format)
+        do {
+            try engine.connectNode(input, to: sink, format: format)
+        } catch {
+            playback?.stop()
+            throw error
+        }
 
         engine.prepare()
         pump.start()

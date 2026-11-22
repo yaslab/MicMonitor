@@ -26,6 +26,7 @@ final class DisplayModeController {
     @ObservationIgnored private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     @ObservationIgnored private var openMainWindow: (() -> Void)?
     @ObservationIgnored private var openSettingsWindow: (() -> Void)?
+    @ObservationIgnored private var windowCloseObservation: NotificationCenter.ObservationToken?
 
     private static let modeKey = "displayMode"
     private static let cardFrameName = "MicMonCard"
@@ -48,14 +49,12 @@ final class DisplayModeController {
             if self?.mode == .card { self?.showCard() }
         }
         // カード表示中に開いた設定ウィンドウを閉じたら、Dock のアイコンをまた隠す
-        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil,
-                                               queue: .main) { [weak self] notification in
-            let identifier = (notification.object as? NSWindow)?.identifier?.rawValue
-            MainActor.assumeIsolated {
-                let isSettings = identifier.map(Self.isSettingsWindow) ?? false
-                guard isSettings, let self, self.mode == .card else { return }
-                NSApp.setActivationPolicy(.accessory)
-            }
+        // （`WillCloseMessage` はメインスレッドで届くので、ウィンドウをそのまま調べられる）
+        windowCloseObservation = NotificationCenter.default.addObserver(
+            of: NSWindow.self, for: .willClose
+        ) { [weak self] message in
+            guard let self, self.mode == .card, Self.isSettingsWindow(message.window) else { return }
+            NSApp.setActivationPolicy(.accessory)
         }
     }
 
@@ -163,8 +162,8 @@ final class DisplayModeController {
     // MARK: - 内部
 
     /// SwiftUI の `Settings` シーンのウィンドウか（識別子は `com_apple_SwiftUI_Settings_window`）。
-    private static func isSettingsWindow(_ identifier: String) -> Bool {
-        identifier.contains("Settings")
+    private static func isSettingsWindow(_ window: NSWindow) -> Bool {
+        window.identifier?.rawValue.contains("Settings") ?? false
     }
 
     private func setMode(_ newMode: DisplayMode) {

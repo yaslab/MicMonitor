@@ -24,11 +24,16 @@ final class MonitorPlayback: @unchecked Sendable {
         self.format = format
         maxPendingFrames = Int(format.sampleRate * Self.maxLatencySeconds)
         engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: format)
+        try engine.connectNode(player, to: engine.mainMixerNode, format: format)
         player.volume = volume
         engine.prepare()
         try engine.start()
-        player.play()
+        do {
+            try player.playAudio()
+        } catch {
+            engine.stop()
+            throw error
+        }
     }
 
     var volume: Float {
