@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MicMon カード表示のバリエーション</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 1880px; height: 600px; box-sizing: border-box; position: relative; overflow: hidden; background: #23272E; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans', 'Noto Sans JP', sans-serif; color: #F2F2F7">
+
+  <div aria-hidden="true" style="position: absolute; left: 420px; top: 170px; width: 1040px; height: 520px; border-radius: 12px; background: #E9EAEE; box-shadow: 0 20px 60px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 14px; padding: 56px 64px; box-sizing: border-box">
+    <div style="width: 46%; height: 18px; border-radius: 4px; background: #B8BCC6"></div>
+    <div style="width: 88%; height: 10px; border-radius: 3px; background: #CDD0D7"></div>
+    <div style="width: 80%; height: 10px; border-radius: 3px; background: #CDD0D7"></div>
+    <div style="width: 84%; height: 10px; border-radius: 3px; background: #CDD0D7"></div>
+    <div style="width: 62%; height: 10px; border-radius: 3px; background: #CDD0D7"></div>
+    <div style="display: flex; gap: 14px; margin-top: 10px">
+      <div style="width: 180px; height: 110px; border-radius: 8px; background: #E07A5F"></div>
+      <div style="width: 180px; height: 110px; border-radius: 8px; background: #3D8BD9"></div>
+      <div style="width: 180px; height: 110px; border-radius: 8px; background: #7BB662"></div>
+    </div>
+  </div>
+
+  <div style="position: relative; display: flex; align-items: flex-start; gap: 56px; padding: 64px 80px">
+    <div style="display: flex; flex-direction: column; gap: 16px; width: 300px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 600">通常</span>
+        <span style="font-size: 12px; color: #B4B8C0">メーター・入力音量・波形・スペクトル</span>
+      </div>
+      <dc-import name="Card" hint-size="300px,236px"></dc-import>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 16px; width: 300px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 600">スペクトログラム</span>
+        <span style="font-size: 12px; color: #B4B8C0">スペクトルの欄をクリックして切り替え（選択は保存）</span>
+      </div>
+      <dc-import name="Card" spectrogram="{{yes}}" hint-size="300px,236px"></dc-import>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 16px; width: 300px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 600">計測を停止中</span>
+        <span style="font-size: 12px; color: #B4B8C0">波形とスペクトログラムは停止時点のまま</span>
+      </div>
+      <dc-import name="Card" paused="{{yes}}" spectrogram="{{yes}}" hint-size="300px,220px"></dc-import>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 16px; width: 300px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 600">「…」メニュー</span>
+        <span style="font-size: 12px; color: #B4B8C0">メニューバーが出ない間の切り替え・設定・終了</span>
+      </div>
+      <dc-import name="Card" menu-open="{{yes}}" hint-size="300px,236px"></dc-import>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 16px; width: 220px">
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 600">最小幅・1ch・エラー</span>
+        <span style="font-size: 12px; color: #B4B8C0">幅 220、波形オフ、エラーは 2 行まで</span>
+      </div>
+      <dc-import name="Card" width="{{w220}}" channels="{{one}}" show-wave="{{no}}" error="{{err}}" hint-size="220px,150px"></dc-import>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1880,"height":600}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { yes: true, no: false, w220: 220, one: '1', err: 'モニター再生を開始できませんでした：出力デバイスが見つかりません（計測は続行中）' };
+  }
+}
+</script>
+</body>
+</html>

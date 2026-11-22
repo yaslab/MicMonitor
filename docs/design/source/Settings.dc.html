@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MicMon 設定</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 560px; height: 720px; box-sizing: border-box; display: flex; flex-direction: column; background: {{t.window}}; color: {{t.text}}; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 13px; overflow: hidden">
+
+  <div style="height: 28px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: {{t.chrome}}; border-bottom: 1px solid {{t.titleBorder}}; position: relative">
+    <span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 50%; background: #FF5F57"></span>
+    <span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 50%; background: {{t.lightOff}}"></span>
+    <span aria-hidden="true" style="width: 12px; height: 12px; border-radius: 50%; background: {{t.lightOff}}"></span>
+    <div style="position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 600; color: {{t.textSoft}}; pointer-events: none">設定</div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; gap: 22px; padding: 22px 24px 24px">
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0 0 0 4px; font-size: 13px; font-weight: 600; color: {{t.textSoft}}">波形</h2>
+      <div style="background: {{t.group}}; border: 1px solid {{t.groupBorder}}; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 14px">
+        <label for="hist" style="font-size: 13px; width: 84px">履歴の長さ</label>
+        <div style="flex: 1; position: relative; height: 24px">
+          <div style="position: absolute; left: 0; right: 0; top: 10px; height: 4px; border-radius: 2px; background: {{t.track}}"></div>
+          <div style="position: absolute; left: 0; top: 10px; height: 4px; width: {{nPct}}; border-radius: 2px; background: {{t.accent}}"></div>
+          <div style="position: absolute; left: {{nPct}}; top: 4px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; background: {{t.knob}}; box-shadow: {{t.knobShadow}}"></div>
+          <input id="hist" type="range" min="1" max="60" value="{{n}}" onInput="{{setN}}" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer">
+        </div>
+        <div style="display: flex; flex-direction: column; border: 1px solid {{t.btnBorder}}; border-radius: 5px; overflow: hidden">
+          <button onClick="{{inc}}" aria-label="1 秒長くする" style="width: 18px; height: 12px; padding: 0; border: none; background: {{t.btn}}; display: flex; align-items: center; justify-content: center">
+            <svg width="8" height="6" viewBox="0 0 8 6" aria-hidden="true"><path d="M1 5 L4 1.5 L7 5" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg>
+          </button>
+          <button onClick="{{dec}}" aria-label="1 秒短くする" style="width: 18px; height: 12px; padding: 0; border: none; border-top: 1px solid {{t.btnBorder}}; background: {{t.btn}}; display: flex; align-items: center; justify-content: center">
+            <svg width="8" height="6" viewBox="0 0 8 6" aria-hidden="true"><path d="M1 1 L4 4.5 L7 1" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg>
+          </button>
+        </div>
+        <span style="width: 44px; text-align: right; font-variant-numeric: tabular-nums">{{n}} 秒</span>
+      </div>
+      <p style="margin: 0 0 0 4px; font-size: 12px; color: {{t.text2}}">1〜60 秒。波形とスペクトログラムの両方に適用されます。</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0">
+      <h2 style="margin: 0 0 0 4px; font-size: 13px; font-weight: 600; color: {{t.textSoft}}">スペクトログラム</h2>
+      <div style="background: {{t.group}}; border: 1px solid {{t.groupBorder}}; border-radius: 10px; display: flex; flex-direction: column">
+        <div style="padding: 12px 14px 6px; font-size: 13px">カラーマップ</div>
+        <div role="radiogroup" aria-label="カラーマップ" style="display: flex; flex-direction: column; padding: 0 6px 6px">
+          <sc-for list="{{maps}}" as="m" hint-placeholder-count="5">
+            <button role="radio" aria-checked="{{m.checked}}" onClick="{{m.pick}}" style="display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 8px; border: none; border-radius: 6px; background: {{m.rowBg}}; text-align: left">
+              <span style="width: 14px; height: 14px; box-sizing: border-box; border-radius: 50%; border: {{m.ring}}; background: {{t.radioFill}}; flex-shrink: 0"></span>
+              <span style="flex: 1; font-size: 13px">{{m.name}}</span>
+              <span style="width: 160px; height: 12px; border-radius: 3px; background: {{m.grad}}; box-shadow: inset 0 0 0 1px {{t.hairline}}"></span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="border-top: 1px solid {{t.groupBorder}}; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 11px; font-weight: 600; color: {{t.text2}}; letter-spacing: 0.04em">見本</span>
+            <div style="height: 84px; display: flex; background: {{t.plot}}; border-radius: 5px; overflow: hidden">
+              <sc-for list="{{sample}}" as="c" hint-placeholder-count="40">
+                <div style="flex: 1 1 0; min-width: 0; background: {{c.bg}}"></div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 11px; font-weight: 600; color: {{t.text2}}; letter-spacing: 0.04em">色の流れ</span>
+            <div style="height: 14px; border-radius: 3px; background: {{selGrad}}; box-shadow: inset 0 0 0 1px {{t.hairline}}"></div>
+            <div style="display: flex; justify-content: space-between; font-size: 10px; color: {{t.text3}}; font-variant-numeric: tabular-nums">
+              <span>-100 dB</span><span>-75</span><span>-50</span><span>-25</span><span>0 dB</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 11px; font-weight: 600; color: {{t.text2}}; letter-spacing: 0.04em">特徴</span>
+            <p style="margin: 0; font-size: 12px; line-height: 1.65; color: {{t.textSoft}}; text-wrap: pretty">{{selDesc}}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"]},"colormap":{"editor":"enum","default":"viridis","options":["mono","viridis","magma","inferno","plasma"]},"$preview":{"width":560,"height":720}}'>
+var MAPS = {
+  viridis: ['#440154','#482878','#3E4A89','#31688E','#26828E','#1F9E89','#35B779','#6DCD59','#B4DE2C','#FDE725'],
+  magma: ['#000004','#180F3D','#440F76','#721F81','#9E2F7F','#CD4071','#F1605D','#FD9668','#FECA8D','#FCFDBF'],
+  inferno: ['#000004','#1B0C41','#4A0C6B','#781C6D','#A52C60','#CF4446','#ED6925','#FB9B06','#F7D13D','#FCFFA4'],
+  plasma: ['#0D0887','#46039F','#7201A8','#9C179E','#BD3786','#D8576B','#ED7953','#FB9F3A','#FDCA26','#F0F921']
+};
+var INFO = [
+  { id: 'mono', name: '単色（アクセントカラー・既定）', desc: 'アクセントカラーの濃さでレベルを表します。レベルに比例した透明度で塗るため背景になじみ、ほかの表示の邪魔をしません。弱い成分の細かな差は読み取りにくくなります。' },
+  { id: 'viridis', name: 'viridis', desc: '濃い紫 → 青 → 緑 → 黄。明るさが一様に増えていくので、色覚の違いがあっても、白黒にしてもレベルの大小が正しく読めます。迷ったらこれ。' },
+  { id: 'magma', name: 'magma', desc: '黒 → 紫 → 赤 → 淡い黄。いちばん低いレベルがほぼ黒になり、暗い背景に自然に溶け込みます。ノイズフロア付近の弱い成分の差が見やすい配色です。' },
+  { id: 'inferno', name: 'inferno', desc: '黒 → 紫 → 橙 → 黄。magma に似ていますが高レベル側のコントラストが強く、ピークや強い倍音が目立ちます。' },
+  { id: 'plasma', name: 'plasma', desc: '濃い青 → 紫 → 橙 → 黄。最も暗い色でも黒にならないため、無音の部分も色として見え、表示領域の境目がわかりやすくなります。' }
+];
+var THEMES = {
+  dark: { window: '#1E1E20', chrome: '#2C2C2E', titleBorder: '#0E0E10', lightOff: '#5A5A5E', group: '#2A2A2D', groupBorder: '#36363A', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', text3: '#8E8E93', btn: '#3A3A3C', btnBorder: '#4A4A4E', track: '#48484A', knob: '#F2F2F7', knobShadow: '0 1px 3px rgba(0,0,0,0.5)', radioFill: '#1E1E20', plot: '#0E0E10', hairline: 'rgba(255,255,255,0.08)', accent: '#0A84FF', accentRgb: '10,132,255', rowSel: '#3A3A3D', ringOff: '#6E6E73' },
+  light: { window: '#ECECEC', chrome: '#E3E3E5', titleBorder: '#C9C9CD', lightOff: '#C9C9CD', group: '#FFFFFF', groupBorder: '#DADADF', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#4F4F54', text3: '#636366', btn: '#FFFFFF', btnBorder: '#C9C9CD', track: '#D1D1D6', knob: '#FFFFFF', knobShadow: '0 0 0 0.5px rgba(0,0,0,0.25), 0 1px 3px rgba(0,0,0,0.25)', radioFill: '#FFFFFF', plot: '#F5F5F7', hairline: 'rgba(0,0,0,0.1)', accent: '#007AFF', accentRgb: '0,122,255', rowSel: '#E8E8ED', ringOff: '#AEAEB2' }
+};
+var MONO_RGB = '10,132,255';
+var PLOT = '#0E0E10';
+function rng(seed) { var s = seed >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+function h2r(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function cmap(name, t) {
+  t = Math.max(0, Math.min(1, t));
+  if (name === 'mono') return 'rgba(' + MONO_RGB + ',' + t.toFixed(3) + ')';
+  var st = MAPS[name] || MAPS.viridis;
+  var x = t * (st.length - 1); var i = Math.min(st.length - 2, Math.floor(x)); var f = x - i;
+  var a = h2r(st[i]), b = h2r(st[i + 1]);
+  return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ')';
+}
+function grad(name) {
+  var s = []; for (var i = 0; i <= 16; i++) s.push(cmap(name, i / 16) + ' ' + (i / 16 * 100).toFixed(1) + '%');
+  return (name === 'mono' ? 'linear-gradient(#0E0E10,#0E0E10),' : '') + 'linear-gradient(to right,' + s.join(',') + ')';
+}
+function monoGrad() { var s = []; for (var i = 0; i <= 16; i++) s.push(cmap('mono', i / 16) + ' ' + (i / 16 * 100).toFixed(1) + '%'); return 'linear-gradient(to right,' + s.join(',') + '), ' + PLOT; }
+function makeBursts(seed) {
+  var r = rng(seed); var out = []; var u = 0.02;
+  while (u < 0.97) { if (u > 0.45 && u < 0.55) { u = 0.55; continue; } var w = 0.008 + r() * 0.02; out.push({ c: u, w: w, a: Math.pow(10, (-5 - r() * 18) / 20) }); u += w * 1.6 + r() * 0.03; }
+  return out;
+}
+var BURSTS = makeBursts(11);
+function envLin(u) { var s = 0.0012; for (var i = 0; i < BURSTS.length; i++) { var b = BURSTS[i]; var d = (u - b.c) / b.w; if (d > -4 && d < 4) s += b.a * Math.exp(-d * d); } return Math.min(1, s); }
+function db(x) { return 20 * Math.log10(Math.max(x, 1e-6)); }
+function shapeAt(f, u) {
+  var s = 0; if (f > 400) s -= 7 * Math.log2(f / 400); if (f < 150) s -= 14 * Math.log2(150 / f);
+  var f1 = 520 + 260 * Math.sin(u * 30), f2 = 1600 + 500 * Math.cos(u * 23);
+  return s + 10 * Math.exp(-Math.pow(Math.log2(f / f1) / 0.35, 2)) + 7 * Math.exp(-Math.pow(Math.log2(f / f2) / 0.4, 2));
+}
+function sampleCols(name, M, B) {
+  var r = rng(5); var cols = [];
+  for (var i = 0; i < M; i++) {
+    var u = (i + 0.5) / M; var e = db(envLin(u)); var stops = [];
+    for (var b = 0; b < B; b++) { var f = 20 * Math.pow(2, (b + 0.5) / B * 10); var lvl = Math.max(-95 + r() * 7, e - 26 + shapeAt(f, u) + (r() - 0.5) * 6); stops.push(cmap(name, (lvl + 100) / 100) + ' ' + ((b + 0.5) / B * 100).toFixed(1) + '%'); }
+    cols.push({ bg: 'linear-gradient(to top,' + stops.join(',') + ')' });
+  }
+  return cols;
+}
+class Component extends DCLogic {
+  renderVals() {
+    var self = this; var st = this.state || {};
+    var sel = st.sel || (this.props.colormap ?? 'viridis');
+    var n = st.n || 10;
+    var th = this.props.theme === 'light' ? 'light' : 'dark'; var t = THEMES[th]; MONO_RGB = t.accentRgb; PLOT = t.plot;
+    if (!this._c || this._c.sel !== sel || this._c.th !== th) this._c = { sel: sel, th: th, cols: sampleCols(sel, 110, 40) };
+    var maps = INFO.map(function (m) {
+      var on = m.id === sel;
+      return { name: m.name, checked: on ? 'true' : 'false', rowBg: on ? t.rowSel : 'transparent', ring: on ? '4px solid ' + t.accent : '1.5px solid ' + t.ringOff, grad: m.id === 'mono' ? monoGrad() : grad(m.id), pick: function () { self.setState({ sel: m.id }); } };
+    });
+    var info = INFO.filter(function (m) { return m.id === sel; })[0] || INFO[1];
+    return {
+      n: n, nPct: ((n - 1) / 59 * 100).toFixed(2) + '%',
+      setN: function (e) { self.setState({ n: parseInt(e.target.value, 10) || 10 }); },
+      inc: function () { self.setState({ n: Math.min(60, n + 1) }); },
+      dec: function () { self.setState({ n: Math.max(1, n - 1) }); },
+      maps: maps, sample: this._c.cols, selGrad: sel === 'mono' ? monoGrad() : grad(sel), selDesc: info.desc, t: t
+    };
+  }
+}
+</script>
+</body>
+</html>

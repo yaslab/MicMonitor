@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MicMon カード</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: {{cardW}}; box-sizing: border-box; position: relative; display: flex; flex-direction: column; gap: 8px; padding: 9px 11px 11px; background: {{t.hud}}; backdrop-filter: blur(28px) saturate(1.6); -webkit-backdrop-filter: blur(28px) saturate(1.6); border: 1px solid {{t.hudBorder}}; border-radius: 12px; box-shadow: {{t.hudShadow}}; color: {{t.text}}; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 11px">
+
+  <div style="display: flex; align-items: center; gap: 4px; height: 24px">
+    <button onClick="{{togglePause}}" aria-label="{{pauseLabel}}" style="width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: {{pauseBg}}; color: {{pauseFg}}">
+      <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+        <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect></svg>
+      </sc-if>
+      <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+        <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6 L10.4 6 L3 10.4 Z" fill="currentColor"></path></svg>
+      </sc-if>
+    </button>
+    <span style="flex: 1; min-width: 0; padding-left: 4px; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{deviceName}}</span>
+    <button onClick="{{toggleWave}}" aria-label="波形を表示" aria-pressed="{{wavePressed}}" style="width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: {{waveBtnBg}}; color: {{waveBtnFg}}">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M1.5 8 H2.5 M5 5 V11 M8 2.5 V13.5 M11 5 V11 M13.5 8 H14.5"></path></svg>
+    </button>
+    <button onClick="{{toggleSpec}}" aria-label="スペクトルを表示" aria-pressed="{{specPressed}}" style="width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: {{specBtnBg}}; color: {{specBtnFg}}">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M2.5 13.5 V9 M6 13.5 V4.5 M9.5 13.5 V7 M13 13.5 V10.5"></path></svg>
+    </button>
+    <button onClick="{{toggleMenu}}" aria-label="メニュー" aria-expanded="{{menuExpanded}}" style="width: 24px; height: 24px; flex-shrink: 0; padding: 0; border: none; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: {{menuBtnBg}}; color: {{t.textSoft}}">
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"></circle><circle cx="8" cy="8" r="1.3" fill="currentColor"></circle><circle cx="12.5" cy="8" r="1.3" fill="currentColor"></circle></svg>
+    </button>
+  </div>
+
+  <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <sc-for list="{{meters}}" as="m" hint-placeholder-count="2">
+        <div style="display: grid; grid-template-columns: 1fr 34px; gap: 6px; align-items: center">
+          <div style="position: relative; height: 7px; border-radius: 2px; background: {{t.hudTrack}}; overflow: hidden">
+            <div style="position: absolute; inset: 0; opacity: 0.38; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.peakClip}}"></div>
+            <div style="position: absolute; inset: 0; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.rmsClip}}"></div>
+            <div style="position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; left: {{m.holdLeft}}; background: {{m.holdColor}}"></div>
+          </div>
+          <span style="text-align: right; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 9px; font-variant-numeric: tabular-nums; color: {{m.textColor}}">{{m.holdText}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+  <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+    <div style="height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: {{t.pausedBox}}; color: {{t.textSoft}}; font-size: 11px">計測を停止中</div>
+  </sc-if>
+
+  <div style="display: flex; align-items: center; gap: 6px; height: 18px">
+    <button aria-label="入力をミュート" style="width: 18px; height: 18px; flex-shrink: 0; padding: 0; border: none; background: transparent; color: {{t.textSoft}}; display: flex; align-items: center; justify-content: center">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5 a5 5 0 0 0 10 0 M8 12.5 V14.5"></path></svg>
+    </button>
+    <div style="flex: 1; position: relative; height: 18px">
+      <div style="position: absolute; left: 0; right: 0; top: 7px; height: 3px; border-radius: 2px; background: {{t.sliderTrack}}"></div>
+      <div style="position: absolute; left: 0; top: 7px; height: 3px; width: 62%; border-radius: 2px; background: {{t.accent}}"></div>
+      <sc-for list="{{volTicks}}" as="t" hint-placeholder-count="7">
+        <div style="position: absolute; top: 13px; left: {{t.left}}; width: 1px; height: 3px; background: {{t.tick}}"></div>
+      </sc-for>
+      <div style="position: absolute; left: 62%; top: 2.5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: {{t.knob}}; box-shadow: {{t.knobShadow}}"></div>
+      <input type="range" min="0" max="100" value="62" aria-label="入力音量" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0">
+    </div>
+  </div>
+
+  <sc-if value="{{showWave}}" hint-placeholder-val="{{ true }}">
+    <div style="display: flex; flex-direction: column; gap: 3px">
+      <sc-for list="{{waves}}" as="w" hint-placeholder-count="2">
+        <div style="position: relative; height: 36px; border-radius: 4px; background: {{t.well}}; overflow: hidden">
+          <div style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: {{t.centerLine}}"></div>
+          <svg viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%">
+            <path d="{{w.peak}}" fill="{{t.accent}}" fill-opacity="0.45"></path>
+            <path d="{{w.rms}}" fill="{{t.rms}}"></path>
+          </svg>
+        </div>
+      </sc-for>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{showSpectrum}}" hint-placeholder-val="{{ true }}">
+    <button onClick="{{toggleMode}}" aria-label="スペクトログラムに切り替え" style="position: relative; display: block; width: 100%; height: 36px; padding: 0; border: none; border-radius: 4px; background: {{t.well}}; overflow: hidden">
+      <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%">
+        <path d="{{spArea}}" fill="{{t.accent}}" fill-opacity="0.5"></path>
+        <path d="{{spPeak}}" fill="none" stroke="{{t.peakLine}}" stroke-opacity="0.85" stroke-width="1" vector-effect="non-scaling-stroke"></path>
+      </svg>
+    </button>
+  </sc-if>
+  <sc-if value="{{showSpectrogram}}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{toggleMode}}" aria-label="スペクトルに切り替え" style="display: flex; width: 100%; height: 36px; padding: 0; border: none; border-radius: 4px; background: {{t.plot}}; overflow: hidden">
+      <sc-for list="{{specCols}}" as="c" hint-placeholder-count="30">
+        <span style="flex: 1 1 0; min-width: 0; height: 100%; background: {{c.bg}}"></span>
+      </sc-for>
+    </button>
+  </sc-if>
+
+  <sc-if value="{{hasError}}" hint-placeholder-val="{{ false }}">
+    <p style="margin: 0; font-size: 10px; line-height: 1.45; color: {{t.errorText}}; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{error}}</p>
+  </sc-if>
+
+  <sc-if value="{{menuOpen}}" hint-placeholder-val="{{ false }}">
+    <div role="menu" style="position: absolute; top: 34px; right: 6px; width: 208px; box-sizing: border-box; padding: 5px; display: flex; flex-direction: column; gap: 1px; background: {{t.menu}}; border: 1px solid {{t.hudBorder}}; border-radius: 8px; box-shadow: {{t.menuShadow}}; z-index: 2; font-size: 13px">
+      <button role="menuitem" style="height: 24px; padding: 0 10px; border: none; border-radius: 4px; background: #0A64D6; color: #FFFFFF; text-align: left">ウィンドウ表示に切り替え</button>
+      <button role="menuitem" style="height: 24px; padding: 0 10px; border: none; border-radius: 4px; background: transparent; text-align: left">設定…</button>
+      <div style="height: 1px; margin: 4px 6px; background: {{t.menuDivider}}"></div>
+      <button role="menuitem" style="height: 24px; padding: 0 10px; border: none; border-radius: 4px; background: transparent; text-align: left">終了</button>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"width":{"editor":"int","default":300,"min":220,"max":480,"unit":"px"},"channels":{"editor":"enum","default":"2","options":["1","2"]},"spectrogram":{"editor":"boolean","default":false},"paused":{"editor":"boolean","default":false},"showWave":{"editor":"boolean","default":true},"showSpec":{"editor":"boolean","default":true},"menuOpen":{"editor":"boolean","default":false},"error":{"editor":"text","default":""},"theme":{"editor":"enum","default":"dark","options":["dark","light"]},"colormap":{"editor":"enum","default":"viridis","options":["mono","viridis","magma","inferno","plasma"]},"$preview":{"width":300,"height":260}}'>
+var MAPS = {
+  viridis: ['#440154','#482878','#3E4A89','#31688E','#26828E','#1F9E89','#35B779','#6DCD59','#B4DE2C','#FDE725'],
+  magma: ['#000004','#180F3D','#440F76','#721F81','#9E2F7F','#CD4071','#F1605D','#FD9668','#FECA8D','#FCFDBF'],
+  inferno: ['#000004','#1B0C41','#4A0C6B','#781C6D','#A52C60','#CF4446','#ED6925','#FB9B06','#F7D13D','#FCFFA4'],
+  plasma: ['#0D0887','#46039F','#7201A8','#9C179E','#BD3786','#D8576B','#ED7953','#FB9F3A','#FDCA26','#F0F921']
+};
+var THEMES = {
+  dark: { hud: 'rgba(32,32,36,0.86)', hudBorder: 'rgba(255,255,255,0.14)', hudShadow: '0 14px 40px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(0,0,0,0.6)', well: 'rgba(0,0,0,0.35)', hudTrack: 'rgba(255,255,255,0.1)', pausedBox: 'rgba(255,255,255,0.06)', sliderTrack: 'rgba(255,255,255,0.18)', tick: 'rgba(255,255,255,0.3)', centerLine: 'rgba(255,255,255,0.08)', menu: 'rgba(44,44,48,0.97)', menuDivider: 'rgba(255,255,255,0.12)', menuShadow: '0 10px 30px rgba(0,0,0,0.5)', errorText: '#FF9F0A', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', knob: '#F2F2F7', knobShadow: '0 1px 2px rgba(0,0,0,0.5)', plot: '#0E0E10', accent: '#0A84FF', accentRgb: '10,132,255', toggleBg: 'rgba(10,132,255,0.28)', toggleFg: '#64B5FF', iconBtnBg: 'rgba(255,255,255,0.1)', menuBtnBg: 'rgba(255,255,255,0.16)', rms: '#3D9BFF', peakLine: '#E5E5EA', clipText: '#FF6961', mG: '#30D158', mY: '#FFD60A', mR: '#FF453A' },
+  light: { hud: 'rgba(248,248,250,0.86)', hudBorder: 'rgba(0,0,0,0.12)', hudShadow: '0 14px 40px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.18)', well: 'rgba(0,0,0,0.05)', hudTrack: 'rgba(0,0,0,0.1)', pausedBox: 'rgba(0,0,0,0.05)', sliderTrack: 'rgba(0,0,0,0.15)', tick: 'rgba(0,0,0,0.25)', centerLine: 'rgba(0,0,0,0.08)', menu: 'rgba(250,250,252,0.97)', menuDivider: 'rgba(0,0,0,0.1)', menuShadow: '0 10px 30px rgba(0,0,0,0.2), 0 0 0 0.5px rgba(0,0,0,0.12)', errorText: '#A84800', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#5F5F64', knob: '#FFFFFF', knobShadow: '0 0 0 0.5px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.25)', plot: '#F5F5F7', accent: '#007AFF', accentRgb: '0,122,255', toggleBg: 'rgba(0,122,255,0.14)', toggleFg: '#0060DF', iconBtnBg: 'rgba(0,0,0,0.07)', menuBtnBg: 'rgba(0,0,0,0.1)', rms: '#0060DF', peakLine: '#1D1D1F', clipText: '#D70015', mG: '#34C759', mY: '#FFCC00', mR: '#FF3B30' }
+};
+var MONO_RGB = '10,132,255';
+function rng(seed) { var s = seed >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+function h2r(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function cmap(name, t) {
+  t = Math.max(0, Math.min(1, t));
+  if (name === 'mono') return 'rgba(' + MONO_RGB + ',' + t.toFixed(3) + ')';
+  var st = MAPS[name] || MAPS.viridis;
+  var x = t * (st.length - 1); var i = Math.min(st.length - 2, Math.floor(x)); var f = x - i;
+  var a = h2r(st[i]), b = h2r(st[i + 1]);
+  return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ')';
+}
+function makeBursts(seed) {
+  var r = rng(seed); var out = []; var u = 0.01;
+  while (u < 0.97) { if (u > 0.5 && u < 0.62) { u = 0.62; continue; } var w = 0.004 + r() * 0.012; out.push({ c: u, w: w, a: Math.pow(10, (-5 - r() * 20) / 20) }); u += w * 1.7 + r() * 0.02; }
+  out.push({ c: 0.905, w: 0.007, a: 0.85 });
+  return out;
+}
+var BURSTS = makeBursts(7);
+function envLin(u) { var s = 0.0012; for (var i = 0; i < BURSTS.length; i++) { var b = BURSTS[i]; var d = (u - b.c) / b.w; if (d > -4 && d < 4) s += b.a * Math.exp(-d * d); } return Math.min(1, s); }
+function db(x) { return 20 * Math.log10(Math.max(x, 1e-6)); }
+function nrm(x) { return Math.max(0, Math.min(1, (db(x) + 60) / 60)); }
+function wavePaths(ch, N) {
+  var r = rng(100 + ch); var top = [], bot = [], rt = [], rb = [];
+  for (var i = 0; i < N; i++) {
+    var u = (i + 0.5) / N; var e = envLin(u) * (ch === 1 ? 1.12 : 1);
+    var pk = e * (0.75 + 0.25 * r()); var mx = pk * (0.85 + 0.15 * r()); var mn = pk * (0.8 + 0.2 * r());
+    if (ch === 1 && u > 0.898 && u < 0.912) mx = 1;
+    var rm = pk * 0.36; var tn = nrm(mx), bn = nrm(mn), rn = nrm(rm);
+    top.push(i + ' ' + (50 - tn * 50).toFixed(1)); bot.push(i + ' ' + (50 + bn * 50).toFixed(1));
+    rt.push(i + ' ' + (50 - Math.min(rn, tn) * 50).toFixed(1)); rb.push(i + ' ' + (50 + Math.min(rn, bn) * 50).toFixed(1));
+  }
+  return { peak: 'M' + top.join(' L') + ' L' + bot.reverse().join(' L') + ' Z', rms: 'M' + rt.join(' L') + ' L' + rb.reverse().join(' L') + ' Z' };
+}
+function shapeAt(f, u) {
+  var s = 0; if (f > 400) s -= 7 * Math.log2(f / 400); if (f < 150) s -= 14 * Math.log2(150 / f);
+  var f1 = 520 + 260 * Math.sin(u * 40), f2 = 1600 + 500 * Math.cos(u * 31);
+  return s + 10 * Math.exp(-Math.pow(Math.log2(f / f1) / 0.35, 2)) + 7 * Math.exp(-Math.pow(Math.log2(f / f2) / 0.4, 2));
+}
+function specCols(name, M, B) {
+  var r = rng(42); var cols = [];
+  for (var i = 0; i < M; i++) {
+    var u = (i + 0.5) / M; var e = db(envLin(u)); var stops = [];
+    for (var b = 0; b < B; b++) { var f = 20 * Math.pow(2, (b + 0.5) / B * 10); var lvl = Math.max(-95 + r() * 7, e - 26 + shapeAt(f, u) + (r() - 0.5) * 6); stops.push(cmap(name, (lvl + 100) / 100) + ' ' + ((b + 0.5) / B * 100).toFixed(1) + '%'); }
+    cols.push({ bg: 'linear-gradient(to top,' + stops.join(',') + ')' });
+  }
+  return cols;
+}
+function spectrum() {
+  var r = rng(9); var B = 120; var area = [], peak = [];
+  for (var k = 0; k < B; k++) {
+    var f = 20 * Math.pow(2, k / 12); var x = (k / (B - 1) * 1000).toFixed(1);
+    var harm = f < 5000 ? 7 * Math.pow(Math.max(0, Math.cos(2 * Math.PI * f / 190)), 6) - 3 : 0;
+    var cur = Math.max(-96 + r() * 4, -34 + shapeAt(f, 0.37) + harm + (r() - 0.5) * 4);
+    var pk = Math.min(-1, cur + 4 + r() * 6);
+    area.push(x + ' ' + Math.min(100, -cur).toFixed(1)); peak.push(x + ' ' + Math.min(100, -pk).toFixed(1));
+  }
+  return { area: 'M0 100 L' + area.join(' L') + ' L1000 100 Z', peak: 'M' + peak.join(' L') };
+}
+function zone(d, t) { return d >= -6 ? t.mR : (d >= -18 ? t.mY : t.mG); }
+function pct(d) { return Math.max(0, Math.min(100, (d + 60) / 60 * 100)); }
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this; var st = this.state || {}; var p = this.props;
+    function pick(k, d) { return st[k] !== undefined ? st[k] : (p[k] ?? d); }
+    var paused = pick('paused', false);
+    var showWave = pick('showWave', true);
+    var showSpec = pick('showSpec', true);
+    var sgram = pick('spectrogram', false);
+    var menuOpen = pick('menuOpen', false);
+    var ch = String(p.channels ?? '2') === '1' ? 1 : 2;
+    var cm = p.colormap ?? 'viridis';
+    var th = p.theme === 'light' ? 'light' : 'dark'; var t = THEMES[th];
+    if (!this._c || this._c.cm !== cm || this._c.th !== th) {
+      MONO_RGB = t.accentRgb;
+      var sp = spectrum();
+      this._c = { cm: cm, th: th, waves: [wavePaths(0, 200), wavePaths(1, 200)], cols: specCols(cm, 90, 28), spArea: sp.area, spPeak: sp.peak };
+    }
+    var raw = [{ rms: -22.5, peak: -11.2, hold: -8.4 }, { rms: -19.8, peak: -4.1, hold: -0.1 }].slice(0, ch);
+    var meters = raw.map(function (m) {
+      return {
+        peakClip: 'inset(0 ' + (100 - pct(m.peak)).toFixed(2) + '% 0 0)', rmsClip: 'inset(0 ' + (100 - pct(m.rms)).toFixed(2) + '% 0 0)',
+        holdLeft: pct(m.hold).toFixed(2) + '%', holdColor: zone(m.hold, t), holdText: m.hold.toFixed(1),
+        textColor: m.hold >= -0.1 ? t.clipText : t.textSoft
+      };
+    });
+    var err = p.error ?? '';
+    var w = Math.max(220, p.width ?? 300);
+    return {
+      cardW: w + 'px',
+      paused: paused, running: !paused,
+      deviceName: ch === 1 ? 'USB マイク（モノラル）' : 'MacBook Air のマイク',
+      pauseLabel: paused ? '計測を開始' : '計測を停止', pauseBg: paused ? '#0A64D6' : t.iconBtnBg, pauseFg: paused ? '#FFFFFF' : t.text,
+      togglePause: function () { self.setState({ paused: !paused }); },
+      toggleWave: function () { self.setState({ showWave: !showWave }); },
+      toggleSpec: function () { self.setState({ showSpec: !showSpec }); },
+      toggleMenu: function () { self.setState({ menuOpen: !menuOpen }); },
+      toggleMode: function () { if (!paused) self.setState({ spectrogram: !sgram }); },
+      wavePressed: showWave ? 'true' : 'false', specPressed: showSpec ? 'true' : 'false', menuExpanded: menuOpen ? 'true' : 'false',
+      waveBtnBg: showWave ? t.toggleBg : 'transparent', waveBtnFg: showWave ? t.toggleFg : t.text2,
+      specBtnBg: showSpec ? t.toggleBg : 'transparent', specBtnFg: showSpec ? t.toggleFg : t.text2,
+      menuBtnBg: menuOpen ? t.menuBtnBg : 'transparent',
+      meters: meters,
+      volTicks: [0, 17, 33, 50, 67, 83, 100].map(function (v) { return { left: v + '%' }; }),
+      showWave: showWave,
+      waves: this._c.waves.slice(0, ch),
+      showSpectrum: showSpec && !sgram && !paused,
+      showSpectrogram: showSpec && sgram,
+      specCols: this._c.cols, spArea: this._c.spArea, spPeak: this._c.spPeak,
+      hasError: err.length > 0, error: err, menuOpen: menuOpen, t: t
+    };
+  }
+}
+</script>
+</body>
+</html>
