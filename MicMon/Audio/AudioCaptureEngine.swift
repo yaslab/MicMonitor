@@ -28,6 +28,7 @@ final class AudioCaptureEngine {
 
     private let levels: LevelStore
     private let waveform: WaveformHistory
+    private let spectrum: SpectrumAnalyzer
     private var engine: AVAudioEngine?
     private var playback: MonitorPlayback?
     private var ring: SampleRingBuffer?
@@ -45,9 +46,10 @@ final class AudioCaptureEngine {
         didSet { playback?.volume = monitorVolume }
     }
 
-    init(levels: LevelStore, waveform: WaveformHistory) {
+    init(levels: LevelStore, waveform: WaveformHistory, spectrum: SpectrumAnalyzer) {
         self.levels = levels
         self.waveform = waveform
+        self.spectrum = spectrum
     }
 
     @discardableResult
@@ -77,11 +79,12 @@ final class AudioCaptureEngine {
 
         levels.configure(channelCount: channels)
         waveform.configure(channelCount: channels, sampleRate: format.sampleRate)
+        spectrum.configure(channelCount: channels, sampleRate: format.sampleRate)
 
         // リアルタイムスレッド（シンクノード）→ リングバッファ → ポンプ（専用キュー）→ 集計・再生
         let ring = SampleRingBuffer(channelCount: channels, capacity: Int(format.sampleRate * Self.ringSeconds))
         guard let pump = AudioPump(format: format, ring: ring, levels: levels,
-                                   waveform: waveform, playback: playback)
+                                   waveform: waveform, spectrum: spectrum, playback: playback)
         else {
             playback?.stop()
             throw CaptureError.unsupportedFormat

@@ -13,7 +13,7 @@ struct ContentView: View {
                 monitor
             }
         }
-        .frame(minWidth: 560, minHeight: 380)
+        .frame(minWidth: 560, minHeight: 540)
         .background(WindowAccessor { display.registerMainWindow($0) })
         // カード表示中はこのウィンドウを隠すだけなので、ここでは計測を止めない
         .task { await model.start() }

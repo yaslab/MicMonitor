@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// `SampleRingBuffer` を一定間隔で読み出し、レベル・波形・モニター再生に渡す。
+/// `SampleRingBuffer` を一定間隔で読み出し、レベル・波形・スペクトル・モニター再生に渡す。
 ///
 /// リアルタイムスレッドではサンプルのコピーだけを行い、Mutex を使う集計や再生の予約は
 /// このポンプの専用キューで行う。間隔ぶん（最大 5 ms 程度）の遅れが加わる。
@@ -12,6 +12,7 @@ final class AudioPump: @unchecked Sendable {
     private let ring: SampleRingBuffer
     private let levels: LevelStore
     private let waveform: WaveformHistory
+    private let spectrum: SpectrumAnalyzer
     /// 所有は `AudioCaptureEngine`（MainActor）。解放がこのキューで起きないよう弱参照で持つ。
     private weak var playback: MonitorPlayback?
     private let scratch: AVAudioPCMBuffer
@@ -20,11 +21,12 @@ final class AudioPump: @unchecked Sendable {
     private var timer: DispatchSourceTimer?
 
     init?(format: AVAudioFormat, ring: SampleRingBuffer, levels: LevelStore,
-          waveform: WaveformHistory, playback: MonitorPlayback?) {
+          waveform: WaveformHistory, spectrum: SpectrumAnalyzer, playback: MonitorPlayback?) {
         guard let scratch = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: Self.chunkFrames) else { return nil }
         self.ring = ring
         self.levels = levels
         self.waveform = waveform
+        self.spectrum = spectrum
         self.playback = playback
         self.scratch = scratch
     }
@@ -53,6 +55,7 @@ final class AudioPump: @unchecked Sendable {
             #endif
             levels.process(data, channelCount: channels, frameCount: frames)
             waveform.process(data, channelCount: channels, frameCount: frames)
+            spectrum.process(data, channelCount: channels, frameCount: frames)
             playback?.enqueue(scratch)
             if frames < Int(Self.chunkFrames) { return }
         }

@@ -1,0 +1,216 @@
+import SwiftUI
+
+/// スペクトル表示の目盛り。横軸は対数（20 Hz〜約 20 kHz）、縦軸は dBFS。
+enum SpectrumScale {
+    static let minFrequency = 20.0
+    /// 20 Hz からちょうど 10 オクターブ（帯域が横軸に過不足なく並ぶように）。
+    static let maxFrequency = 20_480.0
+    static let floorDB: Float = -100
+    /// 1 オクターブあたりの帯域数。
+    static let bandsPerOctave = 12
+
+    /// 周波数を横軸の 0...1 にする。
+    static func position(_ frequency: Double) -> Double {
+        log2(frequency / minFrequency) / log2(maxFrequency / minFrequency)
+    }
+
+    static func normalized(_ db: Float) -> Float {
+        min(max((db - floorDB) / -floorDB, 0), 1)
+    }
+
+    static func decibel(_ amplitude: Float) -> Float {
+        amplitude > 0 ? max(floorDB, 20 * log10(amplitude)) : floorDB
+    }
+
+    static func label(_ frequency: Double) -> String {
+        frequency >= 1000 ? String(format: "%gk", frequency / 1000) : String(format: "%g", frequency)
+    }
+}
+
+struct SpectrumBand: Equatable {
+    var levelDB: Float
+    var holdDB: Float
+}
+
+/// FFT のビンを対数間隔の帯域にまとめ、表示の減衰とピークホールドを行う。描画フレームごとに `update` を呼ぶ。
+@MainActor
+final class SpectrumBallistics {
+    static let releaseDBPerSecond: Float = 60
+    static let holdReleaseDBPerSecond: Float = 30
+    static let holdSeconds: TimeInterval = 1.5
+
+    /// 各帯域の下端・上端の周波数（帯域数 + 1 個）。
+    private let edges: [Double]
+    private var bands: [SpectrumBand]
+    private var holdTimes: [Date]
+    private var lastUpdate: Date?
+
+    init() {
+        let octaves = log2(SpectrumScale.maxFrequency / SpectrumScale.minFrequency)
+        let count = Int((octaves * Double(SpectrumScale.bandsPerOctave)).rounded())
+        edges = (0...count).map {
+            SpectrumScale.minFrequency * pow(2, Double($0) / Double(SpectrumScale.bandsPerOctave))
+        }
+        bands = Array(repeating: SpectrumBand(levelDB: SpectrumScale.floorDB, holdDB: SpectrumScale.floorDB),
+                      count: count)
+        holdTimes = Array(repeating: .distantPast, count: count)
+    }
+
+    func update(snapshot: SpectrumSnapshot, now: Date) -> [SpectrumBand] {
+        let dt = Float(min(max(lastUpdate.map { now.timeIntervalSince($0) } ?? 0, 0), 0.25))
+        lastUpdate = now
+        let decay = Self.releaseDBPerSecond * dt
+        let holdDecay = Self.holdReleaseDBPerSecond * dt
+        let amplitudes = snapshot.amplitudes
+        let binWidth = snapshot.binWidth
+
+        for i in bands.indices {
+            let db = SpectrumScale.decibel(bandAmplitude(amplitudes, binWidth: binWidth,
+                                                         lower: edges[i], upper: edges[i + 1]))
+            var band = bands[i]
+            band.levelDB = max(db, band.levelDB - decay)
+            if db >= band.holdDB {
+                band.holdDB = db
+                holdTimes[i] = now
+            } else if now.timeIntervalSince(holdTimes[i]) > Self.holdSeconds {
+                band.holdDB = max(band.levelDB, band.holdDB - holdDecay)
+            }
+            bands[i] = band
+        }
+        return bands
+    }
+
+    /// 帯域に含まれるビンの最大値。ビンより狭い帯域（低域）は中心周波数で隣のビンと線形補間する。
+    private func bandAmplitude(_ amplitudes: [Float], binWidth: Double, lower: Double, upper: Double) -> Float {
+        guard binWidth > 0, amplitudes.count > 1 else { return 0 }
+        let last = amplitudes.count - 1
+        let lowerBin = Int((lower / binWidth).rounded(.up))
+        let upperBin = min(Int((upper / binWidth).rounded(.down)), last)
+        if lowerBin <= upperBin {
+            return amplitudes[lowerBin...upperBin].max() ?? 0
+        }
+        let position = (lower * upper).squareRoot() / binWidth
+        guard position < Double(last) else { return 0 }
+        let index = Int(position)
+        let fraction = Float(position - Double(index))
+        return amplitudes[index] * (1 - fraction) + amplitudes[index + 1] * fraction
+    }
+}
+
+struct SpectrumSection: View {
+    let bands: [SpectrumBand]
+    var compact = false
+
+    private static let axisFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
+    private static let compactAxisFrequencies: [Double] = [100, 1000, 10_000]
+    private static let gutterWidth: CGFloat = 20
+
+    var body: some View {
+        if compact {
+            SpectrumView(bands: bands, labels: Self.compactAxisFrequencies, showsGrid: false)
+                .frame(height: 36)
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    // 縦軸（dBFS）の目盛り
+                    VStack(alignment: .trailing) {
+                        Text("0")
+                        Spacer()
+                        Text("-50")
+                        Spacer()
+                        Text(String(format: "%.0f", SpectrumScale.floorDB))
+                    }
+                    .font(.system(size: 9).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .frame(width: Self.gutterWidth, alignment: .trailing)
+                    SpectrumView(bands: bands, labels: [], showsGrid: true)
+                }
+                .frame(height: 120)
+                FrequencyAxis(frequencies: Self.axisFrequencies)
+                    .frame(height: 10)
+                    .padding(.leading, Self.gutterWidth + 8)
+            }
+        }
+    }
+}
+
+/// 対数周波数軸の目盛り（文字だけ）。
+private struct FrequencyAxis: View {
+    let frequencies: [Double]
+
+    var body: some View {
+        Canvas { context, size in
+            for frequency in frequencies {
+                let x = CGFloat(SpectrumScale.position(frequency)) * size.width
+                context.draw(Text(SpectrumScale.label(frequency)).font(.system(size: 9)).foregroundStyle(.secondary),
+                             at: CGPoint(x: x, y: 0), anchor: .top)
+            }
+            context.draw(Text("Hz").font(.system(size: 9)).foregroundStyle(.secondary),
+                         at: CGPoint(x: size.width, y: 0), anchor: .topTrailing)
+        }
+    }
+}
+
+/// 振幅スペクトル（塗り: 現在値、線: ピークホールド）。
+struct SpectrumView: View {
+    let bands: [SpectrumBand]
+    /// グラフの中に描く周波数の目盛り（カード表示用）。
+    var labels: [Double] = []
+    var showsGrid = true
+
+    private static let gridDB: [Float] = [-20, -40, -60, -80]
+    private static let gridFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
+
+    var body: some View {
+        Canvas { context, size in
+            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4),
+                         with: .color(.secondary.opacity(0.08)))
+
+            func y(_ db: Float) -> CGFloat { size.height * (1 - CGFloat(SpectrumScale.normalized(db))) }
+
+            var grid = Path()
+            for frequency in Self.gridFrequencies {
+                let x = CGFloat(SpectrumScale.position(frequency)) * size.width
+                grid.move(to: CGPoint(x: x, y: 0))
+                grid.addLine(to: CGPoint(x: x, y: size.height))
+            }
+            if showsGrid {
+                for db in Self.gridDB {
+                    grid.move(to: CGPoint(x: 0, y: y(db)))
+                    grid.addLine(to: CGPoint(x: size.width, y: y(db)))
+                }
+            }
+            context.stroke(grid, with: .color(.secondary.opacity(0.2)), lineWidth: 0.5)
+
+            for frequency in labels {
+                let x = CGFloat(SpectrumScale.position(frequency)) * size.width + 2
+                context.draw(Text(SpectrumScale.label(frequency)).font(.system(size: 8)).foregroundStyle(.secondary),
+                             at: CGPoint(x: x, y: 1), anchor: .topLeading)
+            }
+
+            guard bands.count > 1, size.width >= 1 else { return }
+            context.clip(to: Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4))
+
+            // 各帯域の中心に点を置く
+            let step = size.width / CGFloat(bands.count)
+            func x(_ index: Int) -> CGFloat { (CGFloat(index) + 0.5) * step }
+
+            var level = Path()
+            level.move(to: CGPoint(x: 0, y: size.height))
+            level.addLine(to: CGPoint(x: 0, y: y(bands[0].levelDB)))
+            var hold = Path()
+            hold.move(to: CGPoint(x: 0, y: y(bands[0].holdDB)))
+            for (i, band) in bands.enumerated() {
+                level.addLine(to: CGPoint(x: x(i), y: y(band.levelDB)))
+                hold.addLine(to: CGPoint(x: x(i), y: y(band.holdDB)))
+            }
+            level.addLine(to: CGPoint(x: size.width, y: y(bands[bands.count - 1].levelDB)))
+            level.addLine(to: CGPoint(x: size.width, y: size.height))
+            level.closeSubpath()
+            hold.addLine(to: CGPoint(x: size.width, y: y(bands[bands.count - 1].holdDB)))
+
+            context.fill(level, with: .color(.accentColor.opacity(0.5)))
+            context.stroke(hold, with: .color(.accentColor), lineWidth: 1)
+        }
+    }
+}

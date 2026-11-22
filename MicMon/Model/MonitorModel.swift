@@ -24,6 +24,7 @@ final class MonitorModel {
     let inputVolume = InputVolumeController()
     let levels = LevelStore()
     let waveform: WaveformHistory
+    let spectrum = SpectrumAnalyzer()
     private let engine: AudioCaptureEngine
     private let defaults: UserDefaults
     @ObservationIgnored private var pendingRestart: Task<Void, Never>?
@@ -90,7 +91,7 @@ final class MonitorModel {
         monitorVolume = volume
 
         waveform = WaveformHistory(capacity: seconds * WaveformHistory.binsPerSecond)
-        engine = AudioCaptureEngine(levels: levels, waveform: waveform)
+        engine = AudioCaptureEngine(levels: levels, waveform: waveform, spectrum: spectrum)
         engine.monitorVolume = volume
 
         deviceManager.onChange = { [weak self] in self?.reconcile() }
@@ -164,6 +165,7 @@ final class MonitorModel {
         engine.stop()
         isRunning = false
         levels.reset()
+        spectrum.reset()
     }
 
     // MARK: - 内部
@@ -207,6 +209,7 @@ final class MonitorModel {
         guard let device else {
             activeFormat = nil
             levels.reset()
+        spectrum.reset()
             errorMessage = "入力デバイスが見つかりません。"
             Self.logger.error("No input device to start")
             return
@@ -224,6 +227,7 @@ final class MonitorModel {
         } catch {
             activeFormat = nil
             levels.reset()
+        spectrum.reset()
             errorMessage = "「\(device.name)」を開始できませんでした: \(error.localizedDescription)"
             Self.logger.error("Failed to start \(device.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
