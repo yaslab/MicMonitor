@@ -5,8 +5,10 @@ import SwiftUI
 /// `LevelStore.read()` は読むたびに Peak の保持をリセットするため、読み手は 1 つにする必要がある。
 /// 表示していない側は `isActive = false` で描画を止める。
 struct LiveMonitorView: View {
-    /// カード表示用の詰めたレイアウト（メーターを半分の高さで表示し、dB 目盛りと波形を省く。スペクトルは小さく出す）。
+    /// カード表示用の詰めたレイアウト（メーターを半分の高さで表示し、dB 目盛りを省く。波形とスペクトルは小さく出す）。
     var compact = false
+    /// 波形を表示するか。ウィンドウ表示では常に表示し、カード表示では切り替えられる。
+    var showsWaveform = true
     var isActive = true
 
     @Environment(MonitorModel.self) private var model
@@ -20,8 +22,9 @@ struct LiveMonitorView: View {
             VStack(alignment: .leading, spacing: compact ? 8 : 16) {
                 LevelMeterSection(readings: readings, showsScale: !compact, compact: compact,
                                   onResetClip: { ballistics.resetClip() })
-                if !compact {
-                    WaveformSection(snapshot: model.waveform.snapshot(), seconds: model.historySeconds)
+                if showsWaveform {
+                    WaveformSection(snapshot: model.waveform.snapshot(), seconds: model.historySeconds,
+                                    compact: compact)
                 }
                 SpectrumSection(bands: bands, compact: compact)
             }

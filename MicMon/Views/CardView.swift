@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// 画面の最前面に常駐する小さなカード。メーターと入力音量を表示する。
+/// 画面の最前面に常駐する小さなカード。メーター・波形（切り替え可）・スペクトル・入力音量を表示する。
 /// どこを掴んでもドラッグで移動でき、離したときに画面端の近くなら吸着する。
 struct CardView: View {
     @Environment(MonitorModel.self) private var model
     @Environment(DisplayModeController.self) private var display
+    @AppStorage("cardShowsWaveform") private var showsWaveform = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -14,6 +15,15 @@ struct CardView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Spacer(minLength: 4)
+                Button {
+                    showsWaveform.toggle()
+                } label: {
+                    Image(systemName: "waveform")
+                        .foregroundStyle(showsWaveform ? Color.accentColor : Color.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help(showsWaveform ? "波形を隠す" : "波形を表示する")
+                .accessibilityLabel(showsWaveform ? "波形を隠す" : "波形を表示する")
                 Button {
                     display.showWindow()
                 } label: {
@@ -30,7 +40,7 @@ struct CardView: View {
                     .lineLimit(2)
             }
 
-            LiveMonitorView(compact: true, isActive: display.mode == .card)
+            LiveMonitorView(compact: true, showsWaveform: showsWaveform, isActive: display.mode == .card)
             InputVolumeControl(compact: true)
         }
         .padding(12)

@@ -4,20 +4,28 @@ struct WaveformSection: View {
     let snapshot: WaveformSnapshot
     let seconds: Int
     var showsTimeAxis = true
+    /// カード表示用: チャンネル番号と時間軸を省き、1 段をスペクトルと同じ高さにする。
+    var compact = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: compact ? 2 : 4) {
             ForEach(snapshot.channels.indices, id: \.self) { index in
                 HStack(spacing: 8) {
-                    Text(ChannelLabel.label(index: index, count: snapshot.channels.count))
-                        .font(.caption.monospaced())
-                        .frame(width: 20, alignment: .trailing)
-                    WaveformView(bins: snapshot.channels[index], capacity: snapshot.capacity,
-                                 endIndex: snapshot.endIndex)
-                        .frame(minHeight: 40, maxHeight: .infinity)
+                    if !compact {
+                        Text(ChannelLabel.label(index: index, count: snapshot.channels.count))
+                            .font(.caption.monospaced())
+                            .frame(width: 20, alignment: .trailing)
+                    }
+                    let waveform = WaveformView(bins: snapshot.channels[index], capacity: snapshot.capacity,
+                                                endIndex: snapshot.endIndex)
+                    if compact {
+                        waveform.frame(height: SpectrumSection.compactHeight)
+                    } else {
+                        waveform.frame(minHeight: 40, maxHeight: .infinity)
+                    }
                 }
             }
-            if showsTimeAxis {
+            if showsTimeAxis && !compact {
                 HStack {
                     Text("-\(seconds)s")
                     Spacer()

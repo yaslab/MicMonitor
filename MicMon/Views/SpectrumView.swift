@@ -104,11 +104,13 @@ struct SpectrumSection: View {
     private static let axisFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
     private static let compactAxisFrequencies: [Double] = [100, 1000, 10_000]
     private static let gutterWidth: CGFloat = 20
+    /// カード表示での高さ。カードの波形も 1 段をこの高さにそろえる。
+    static let compactHeight: CGFloat = 36
 
     var body: some View {
         if compact {
             SpectrumView(bands: bands, labels: Self.compactAxisFrequencies, showsGrid: false)
-                .frame(height: 36)
+                .frame(height: Self.compactHeight)
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
