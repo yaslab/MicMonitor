@@ -21,7 +21,7 @@ struct MicMonApp: App {
                 .environment(model)
                 .environment(display)
         }
-        .defaultSize(width: 760, height: 680)
+        .defaultSize(width: 760, height: 900)
         // カード表示中はこのウィンドウを隠したまま終了するため、状態の復元に任せると次回の起動時に
         // ウィンドウが作られないことがある。常に起動時に作り、カード表示ならすぐ隠す
         .restorationBehavior(.disabled)

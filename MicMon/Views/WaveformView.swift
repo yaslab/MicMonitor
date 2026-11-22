@@ -7,47 +7,34 @@ struct WaveformSection: View {
     let compact: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 2 : 4) {
-            ForEach(snapshot.channels.indices, id: \.self) { index in
-                HStack(spacing: 8) {
-                    if !compact {
-                        Text(ChannelLabel.label(index: index, count: snapshot.channels.count))
-                            .font(.caption.monospaced())
-                            .frame(width: 20, alignment: .trailing)
-                    }
-                    let waveform = WaveformView(bins: snapshot.channels[index], capacity: snapshot.capacity,
-                                                endIndex: snapshot.endIndex)
-                    if compact {
-                        waveform.frame(height: SpectrumSection.compactHeight)
-                    } else {
-                        waveform.frame(minHeight: 40, maxHeight: .infinity)
-                    }
+        if compact {
+            VStack(spacing: 3) {
+                ForEach(snapshot.channels.indices, id: \.self) { index in
+                    waveform(index)
+                        .frame(height: SpectrumSection.compactHeight)
                 }
             }
-            if !compact {
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(snapshot.channels.indices, id: \.self) { index in
+                    HStack(spacing: MonitorLayout.gutterSpacing) {
+                        Text(ChannelLabel.label(index: index, count: snapshot.channels.count))
+                            .font(.system(size: 11).monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .frame(width: MonitorLayout.gutterWidth, alignment: .leading)
+                        waveform(index)
+                            .frame(minHeight: 54, maxHeight: .infinity)
+                    }
+                }
                 TimeAxis(seconds: seconds)
-                    .padding(.leading, 28)
+                    .padding(.leading, MonitorLayout.gutterWidth + MonitorLayout.gutterSpacing)
             }
         }
     }
-}
 
-/// 履歴の時間軸の目盛り（左端が `seconds` 秒前、右端が現在）。波形とスペクトログラムで共通に使う。
-struct TimeAxis: View {
-    let seconds: Int
-
-    var body: some View {
-        HStack {
-            Text("-\(seconds)s")
-            Spacer()
-            if seconds > 1 {
-                Text(String(format: "-%gs", Double(seconds) / 2))
-                Spacer()
-            }
-            Text("now")
-        }
-        .font(.system(size: 9).monospacedDigit())
-        .foregroundStyle(.secondary)
+    private func waveform(_ index: Int) -> WaveformView {
+        WaveformView(bins: snapshot.channels[index], capacity: snapshot.capacity, endIndex: snapshot.endIndex,
+                     compact: compact)
     }
 }
 
@@ -57,26 +44,17 @@ struct WaveformView: View {
     let capacity: Int
     /// 最新のビンの次の通し番号（`WaveformSnapshot.endIndex`）。
     let endIndex: Int
-
-    private static let gridDB: [Float] = [-6, -20, -40]
+    /// カード表示用の色（下地を半透明にする）。
+    var compact = false
 
     var body: some View {
         Canvas { context, size in
             let mid = size.height / 2
             context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4),
-                         with: .color(.secondary.opacity(0.08)))
-
-            var grid = Path()
-            grid.move(to: CGPoint(x: 0, y: mid))
-            grid.addLine(to: CGPoint(x: size.width, y: mid))
-            for db in Self.gridDB {
-                let offset = CGFloat(Decibel.normalized(db)) * mid
-                for y in [mid - offset, mid + offset] {
-                    grid.move(to: CGPoint(x: 0, y: y))
-                    grid.addLine(to: CGPoint(x: size.width, y: y))
-                }
-            }
-            context.stroke(grid, with: .color(.secondary.opacity(0.2)), lineWidth: 0.5)
+                         with: .color(compact ? .cardWell : .plot))
+            // 中心線（無音の位置）
+            context.fill(Path(CGRect(x: 0, y: (mid - 0.5).rounded(), width: size.width, height: 1)),
+                         with: .color(compact ? .cardCenterLine : .panelBorder))
 
             guard capacity > 0, !bins.isEmpty, size.width >= 1 else { return }
             context.clip(to: Path(CGRect(origin: .zero, size: size)))
@@ -123,8 +101,8 @@ struct WaveformView: View {
                 let rmsLower = min(rmsHeight, lowerHeight)
                 rmsPath.addRect(CGRect(x: x, y: mid - rmsUpper, width: width, height: rmsUpper + rmsLower))
             }
-            context.fill(peakPath, with: .color(.accentColor.opacity(0.4)))
-            context.fill(rmsPath, with: .color(.accentColor))
+            context.fill(peakPath, with: .color(.accentColor.opacity(compact ? 0.45 : 0.4)))
+            context.fill(rmsPath, with: .color(.waveformRMS))
         }
     }
 }

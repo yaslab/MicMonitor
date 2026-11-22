@@ -22,9 +22,18 @@ enum SpectrogramColormap: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    /// 設定の一覧に出す名前。
     var name: String {
         switch self {
-        case .accent: "単色（アクセントカラー）"
+        case .accent: "単色（アクセントカラー・既定）"
+        default: shortName
+        }
+    }
+
+    /// ウィンドウ表示の見出しに出す短い名前。
+    var shortName: String {
+        switch self {
+        case .accent: "単色"
         case .viridis: "viridis"
         case .magma: "magma"
         case .inferno: "inferno"
@@ -32,29 +41,19 @@ enum SpectrogramColormap: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 弱い → 強いの色の流れ。
-    var flow: String {
-        switch self {
-        case .accent: "透明 → アクセントカラー"
-        case .viridis: "紫 → 青緑 → 黄"
-        case .magma: "黒 → 紫 → 橙 → 薄い黄"
-        case .inferno: "黒 → 紫 → 赤橙 → 黄"
-        case .plasma: "青紫 → 桃 → 黄"
-        }
-    }
-
+    /// 設定に出す特徴（色の流れを含む）。
     var summary: String {
         switch self {
         case .accent:
-            "レベルをアクセントカラーの濃さだけで表す。ライト・ダークのどちらの表示にもなじむが、細かいレベル差は見分けにくい"
+            "アクセントカラーの濃さでレベルを表します。レベルに比例した透明度で塗るため背景になじみ、ほかの表示の邪魔をしません。弱い成分の細かな差は読み取りにくくなります。"
         case .viridis:
-            "最も無難な知覚的に均一なカラーマップ（matplotlib の既定）。暗い部分も真っ黒にならない"
+            "濃い紫 → 青 → 緑 → 黄。明るさが一様に増えていくので、色覚の違いがあっても、白黒にしてもレベルの大小が正しく読めます。迷ったらこれ。"
         case .magma:
-            "黒から始まるので無音が背景に溶け込む。スペクトログラムでよく使われる"
+            "黒 → 紫 → 赤 → 淡い黄。いちばん低いレベルがほぼ黒になり、暗い背景に自然に溶け込みます。ノイズフロア付近の弱い成分の差が見やすい配色です。"
         case .inferno:
-            "magma より彩度が高く、ピークが強く目立つ"
+            "黒 → 紫 → 橙 → 黄。magma に似ていますが高レベル側のコントラストが強く、ピークや強い倍音が目立ちます。"
         case .plasma:
-            "黒から始まらないので、最小値もやや見える"
+            "濃い青 → 紫 → 橙 → 黄。最も暗い色でも黒にならないため、無音の部分も色として見え、表示領域の境目がわかりやすくなります。"
         }
     }
 

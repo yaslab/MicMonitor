@@ -8,8 +8,12 @@ enum SpectrumScale {
     static let floorDB: Float = -100
     /// 1 オクターブあたりの帯域数。
     static let bandsPerOctave = 12
-    /// 縦の格子線と、ウィンドウ表示の周波数軸の目盛り（位置をそろえるため共通にする）。
-    static let gridFrequencies: [Double] = [50, 100, 200, 500, 1000, 2000, 5000, 10_000]
+    /// ウィンドウ表示の周波数軸の目盛り。
+    static let axisFrequencies: [Double] = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10_000, 20_000]
+    /// 縦の格子線（10 倍ごと）。スペクトログラムの周波数の目盛りにも使う。
+    static let decadeFrequencies: [Double] = [100, 1000, 10_000]
+    /// ウィンドウ表示の dB 軸の目盛りと横の格子線。
+    static let axisDB: [Float] = [0, -20, -40, -60, -80, -100]
 
     /// 周波数を横軸の 0...1 にする。
     static func position(_ frequency: Double) -> Double {
@@ -72,53 +76,56 @@ struct SpectrumSection: View {
     let bands: [SpectrumBand]
     let compact: Bool
 
-    private static let compactAxisFrequencies: [Double] = [100, 1000, 10_000]
-    private static let gutterWidth: CGFloat = 20
     /// カード表示での高さ。カードの波形も 1 段をこの高さにそろえる。
     static let compactHeight: CGFloat = 36
 
     var body: some View {
         if compact {
-            SpectrumView(bands: bands, labels: Self.compactAxisFrequencies, showsGrid: false)
+            SpectrumView(bands: bands, compact: true)
                 .frame(height: Self.compactHeight)
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    // 縦軸（dBFS）の目盛り
-                    VStack(alignment: .trailing) {
-                        Text("0")
-                        Spacer()
-                        Text("-50")
-                        Spacer()
-                        Text(String(format: "%.0f", SpectrumScale.floorDB))
-                    }
-                    .font(.system(size: 9).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .frame(width: Self.gutterWidth, alignment: .trailing)
-                    SpectrumView(bands: bands, labels: [], showsGrid: true)
+                HStack(spacing: MonitorLayout.gutterSpacing) {
+                    DecibelAxis()
+                        .frame(width: MonitorLayout.gutterWidth)
+                    SpectrumView(bands: bands, compact: false)
                 }
-                .frame(height: 120)
-                FrequencyAxis(frequencies: SpectrumScale.gridFrequencies)
-                    .frame(height: 10)
-                    .padding(.leading, Self.gutterWidth + 8)
+                .frame(height: 112)
+                FrequencyAxis()
+                    .frame(height: 14)
+                    .padding(.leading, MonitorLayout.gutterWidth + MonitorLayout.gutterSpacing)
             }
         }
     }
 }
 
-/// 対数周波数軸の目盛り（文字だけ）。
-private struct FrequencyAxis: View {
-    let frequencies: [Double]
-
+/// 縦の dBFS 軸の目盛り（文字だけ）。両端の文字はグラフの中に収める。
+private struct DecibelAxis: View {
     var body: some View {
         Canvas { context, size in
+            for db in SpectrumScale.axisDB {
+                let y = size.height * (1 - CGFloat(SpectrumScale.normalized(db)))
+                let anchor: UnitPoint = db == SpectrumScale.axisDB.first ? .topTrailing
+                    : db == SpectrumScale.axisDB.last ? .bottomTrailing : .trailing
+                context.draw(Text(String(format: "%.0f", db)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
+                             at: CGPoint(x: size.width, y: y), anchor: anchor)
+            }
+        }
+    }
+}
+
+/// 対数周波数軸の目盛り（文字だけ）。両端の文字はグラフの中に収める。
+private struct FrequencyAxis: View {
+    var body: some View {
+        Canvas { context, size in
+            let frequencies = SpectrumScale.axisFrequencies
             for frequency in frequencies {
                 let x = CGFloat(SpectrumScale.position(frequency)) * size.width
-                context.draw(Text(SpectrumScale.label(frequency)).font(.system(size: 9)).foregroundStyle(.secondary),
-                             at: CGPoint(x: x, y: 0), anchor: .top)
+                let anchor: UnitPoint = frequency == frequencies.first ? .topLeading
+                    : frequency == frequencies.last ? .topTrailing : .top
+                context.draw(Text(SpectrumScale.label(frequency)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
+                             at: CGPoint(x: frequency == frequencies.last ? size.width : x, y: 0), anchor: anchor)
             }
-            context.draw(Text("Hz").font(.system(size: 9)).foregroundStyle(.secondary),
-                         at: CGPoint(x: size.width, y: 0), anchor: .topTrailing)
         }
     }
 }
@@ -126,41 +133,31 @@ private struct FrequencyAxis: View {
 /// 振幅スペクトル（塗り: 現在値、線: ピークホールド）。
 struct SpectrumView: View {
     let bands: [SpectrumBand]
-    /// グラフの中に描く周波数の目盛り（カード表示用）。
-    let labels: [Double]
-    let showsGrid: Bool
-
-    private static let gridDB: [Float] = [-20, -40, -60, -80]
+    /// カード表示用: 格子線を描かず、下地を半透明にする。
+    let compact: Bool
 
     var body: some View {
         Canvas { context, size in
-            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4),
-                         with: .color(.secondary.opacity(0.08)))
+            let shape = Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4)
+            context.fill(shape, with: .color(compact ? .cardWell : .plot))
+            context.clip(to: shape)
 
             func y(_ db: Float) -> CGFloat { size.height * (1 - CGFloat(SpectrumScale.normalized(db))) }
 
-            var grid = Path()
-            for frequency in SpectrumScale.gridFrequencies {
-                let x = CGFloat(SpectrumScale.position(frequency)) * size.width
-                grid.move(to: CGPoint(x: x, y: 0))
-                grid.addLine(to: CGPoint(x: x, y: size.height))
-            }
-            if showsGrid {
-                for db in Self.gridDB {
-                    grid.move(to: CGPoint(x: 0, y: y(db)))
-                    grid.addLine(to: CGPoint(x: size.width, y: y(db)))
+            if !compact {
+                var grid = Path()
+                for frequency in SpectrumScale.decadeFrequencies {
+                    let x = (CGFloat(SpectrumScale.position(frequency)) * size.width).rounded()
+                    grid.addRect(CGRect(x: x, y: 0, width: 1, height: size.height))
                 }
-            }
-            context.stroke(grid, with: .color(.secondary.opacity(0.2)), lineWidth: 0.5)
-
-            for frequency in labels {
-                let x = CGFloat(SpectrumScale.position(frequency)) * size.width + 2
-                context.draw(Text(SpectrumScale.label(frequency)).font(.system(size: 8)).foregroundStyle(.secondary),
-                             at: CGPoint(x: x, y: 1), anchor: .topLeading)
+                for db in SpectrumScale.axisDB {
+                    let y = min(y(db).rounded(), size.height - 1)
+                    grid.addRect(CGRect(x: 0, y: y, width: size.width, height: 1))
+                }
+                context.fill(grid, with: .color(.plotGrid))
             }
 
             guard bands.count > 1, size.width >= 1 else { return }
-            context.clip(to: Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 4))
 
             // 各帯域の中心に点を置く
             let step = size.width / CGFloat(bands.count)
@@ -180,8 +177,8 @@ struct SpectrumView: View {
             level.closeSubpath()
             hold.addLine(to: CGPoint(x: size.width, y: y(bands[bands.count - 1].holdDB)))
 
-            context.fill(level, with: .color(.accentColor.opacity(0.5)))
-            context.stroke(hold, with: .color(.accentColor), lineWidth: 1)
+            context.fill(level, with: .color(.accentColor.opacity(compact ? 0.5 : 0.45)))
+            context.stroke(hold, with: .color(.peakLine.opacity(0.85)), lineWidth: compact ? 1 : 1.25)
         }
     }
 }

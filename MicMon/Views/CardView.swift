@@ -13,15 +13,16 @@ struct CardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 CaptureToggle(compact: true)
                 Text(model.activeDevice?.name ?? "入力デバイスなし")
-                    .font(.caption)
+                    .font(.system(size: 12, weight: .semibold))
                     .lineLimit(1)
-                    .truncationMode(.middle)
+                    .truncationMode(.tail)
+                    .padding(.leading, 4)
                 Spacer(minLength: 4)
                 SectionToggle(isOn: $showsWaveform, systemImage: "waveform", name: "波形")
-                SectionToggle(isOn: $showsSpectrum, systemImage: "chart.bar.xaxis", name: "スペクトル")
+                SectionToggle(isOn: $showsSpectrum, systemImage: "chart.bar", name: "スペクトル")
                 Menu {
                     Button("ウィンドウ表示に切り替え") {
                         display.showWindow()
@@ -35,27 +36,30 @@ struct CardView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
+                        .font(.system(size: 12, weight: .semibold))
                 }
                 .menuStyle(.button)
                 .menuIndicator(.hidden)
                 .buttonStyle(.borderless)
-                .fixedSize()
+                .frame(width: 24, height: 24)
                 .help("その他")
                 .accessibilityLabel("その他")
+            }
+            .frame(height: 24)
+
+            LiveMonitorView(compact: true, showsWaveform: showsWaveform, showsSpectrum: showsSpectrum,
+                            cardShowsSpectrogram: $showsSpectrogram, isActive: display.mode == .card) {
+                InputVolumeControl(compact: true)
             }
 
             if let errorMessage = model.errorMessage {
                 Text(errorMessage)
-                    .font(.caption2)
-                    .foregroundStyle(.red)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.cardErrorText)
                     .lineLimit(2)
             }
-
-            LiveMonitorView(compact: true, showsWaveform: showsWaveform, showsSpectrum: showsSpectrum,
-                            cardShowsSpectrogram: $showsSpectrogram, isActive: display.mode == .card)
-            InputVolumeControl(compact: true)
         }
-        .padding(12)
+        .padding(EdgeInsets(top: 9, leading: 11, bottom: 11, trailing: 11))
         .frame(minWidth: DisplayModeController.cardMinimumWidth, maxWidth: .infinity, alignment: .topLeading)
         // 高さは中身に合わせる（パネルの高さもこれに固定され、幅だけ変えられる）
         .fixedSize(horizontal: false, vertical: true)
@@ -77,9 +81,18 @@ private struct SectionToggle: View {
     let name: String
 
     var body: some View {
-        IconToggleButton(systemImage: systemImage, isHighlighted: isOn,
-                         label: isOn ? "\(name)を隠す" : "\(name)を表示する") {
+        CardIconButton(systemImage: systemImage, style: isOn ? .on : .off,
+                       label: isOn ? "\(name)を隠す" : "\(name)を表示する") {
             isOn.toggle()
         }
     }
+}
+
+#Preview {
+    let model = MonitorModel()
+    CardView()
+        .environment(model)
+        .environment(DisplayModeController(model: model))
+        .frame(width: 300)
+        .background(.regularMaterial)
 }

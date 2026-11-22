@@ -5,27 +5,23 @@ import SwiftUI
 struct SpectrogramSection: View {
     let snapshot: SpectrogramSnapshot
     let seconds: Int
-    /// カード表示用: 目盛りを中に描き、時間軸を省いて、スペクトルと同じ高さにする。
+    /// カード表示用: 目盛りと時間軸を省いて、スペクトルと同じ高さにする。
     var compact = false
-
-    private static let axisFrequencies: [Double] = [100, 1000, 10_000]
-    private static let gutterWidth: CGFloat = 20
 
     var body: some View {
         if compact {
-            SpectrogramView(snapshot: snapshot, gridFrequencies: Self.axisFrequencies,
-                            labels: Self.axisFrequencies)
+            SpectrogramView(snapshot: snapshot)
                 .frame(height: SpectrumSection.compactHeight)
         } else {
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    FrequencyLabels(frequencies: Self.axisFrequencies)
-                        .frame(width: Self.gutterWidth)
-                    SpectrogramView(snapshot: snapshot, gridFrequencies: Self.axisFrequencies)
+                HStack(spacing: MonitorLayout.gutterSpacing) {
+                    FrequencyLabels(frequencies: SpectrumScale.decadeFrequencies)
+                        .frame(width: MonitorLayout.gutterWidth)
+                    SpectrogramView(snapshot: snapshot)
                 }
-                .frame(height: 100)
+                .frame(height: 104)
                 TimeAxis(seconds: seconds)
-                    .padding(.leading, Self.gutterWidth + 8)
+                    .padding(.leading, MonitorLayout.gutterWidth + MonitorLayout.gutterSpacing)
             }
         }
     }
@@ -39,8 +35,8 @@ private struct FrequencyLabels: View {
         Canvas { context, size in
             for frequency in frequencies {
                 let y = (1 - CGFloat(SpectrumScale.position(frequency))) * size.height
-                context.draw(Text(SpectrumScale.label(frequency)).font(.system(size: 9)).foregroundStyle(.secondary),
-                             at: CGPoint(x: size.width, y: min(max(y, 6), size.height - 6)), anchor: .trailing)
+                context.draw(Text(SpectrumScale.label(frequency)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
+                             at: CGPoint(x: size.width, y: min(max(y, 7), size.height - 7)), anchor: .trailing)
             }
         }
     }
@@ -48,9 +44,6 @@ private struct FrequencyLabels: View {
 
 struct SpectrogramView: View {
     let snapshot: SpectrogramSnapshot
-    let gridFrequencies: [Double]
-    /// グラフの中（左端）に描く周波数の目盛り（カード表示用）。
-    var labels: [Double] = []
 
     @AppStorage(SpectrogramColormap.storageKey) private var colormap = SpectrogramColormap.defaultValue
     @State private var imageCache = SpectrogramImageCache()
@@ -59,7 +52,7 @@ struct SpectrogramView: View {
         Canvas { context, size in
             let bounds = CGRect(origin: .zero, size: size)
             let shape = Path(roundedRect: bounds, cornerRadius: 4)
-            context.fill(shape, with: .color(.secondary.opacity(0.08)))
+            context.fill(shape, with: .color(.plot))
             context.clip(to: shape)
 
             let capacity = snapshot.capacity
@@ -76,20 +69,6 @@ struct SpectrogramView: View {
                     context.draw(Image(decorative: image.image, scale: 1).interpolation(.medium),
                                  in: CGRect(x: x, y: 0, width: width, height: size.height))
                 }
-            }
-
-            var grid = Path()
-            for frequency in gridFrequencies {
-                let y = (1 - CGFloat(SpectrumScale.position(frequency))) * size.height
-                grid.move(to: CGPoint(x: 0, y: y))
-                grid.addLine(to: CGPoint(x: size.width, y: y))
-            }
-            context.stroke(grid, with: .color(.secondary.opacity(0.2)), lineWidth: 0.5)
-
-            for frequency in labels {
-                let y = (1 - CGFloat(SpectrumScale.position(frequency))) * size.height
-                context.draw(Text(SpectrumScale.label(frequency)).font(.system(size: 8)).foregroundStyle(.secondary),
-                             at: CGPoint(x: 2, y: min(max(y, 5), size.height - 5)), anchor: .leading)
             }
         }
     }
