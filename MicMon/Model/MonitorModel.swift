@@ -155,8 +155,13 @@ final class MonitorModel {
 
     // MARK: - 開始・停止
 
+    private static let isRunningForPreviews =
+        ProcessInfo.processInfo.environment["XCODE_RUNNING_FOR_PREVIEWS"] == "1"
+
     /// ウィンドウ表示とカード表示の両方から呼ばれるため、動作中なら何もしない。
     func start() async {
+        // Xcode のプレビューではマイクを使わない（プレビューを描いたプロセスが裏に残り、マイクを使い続けることがある）
+        if Self.isRunningForPreviews { return }
         // 権限の確認を待っている間にもう一方から呼ばれても、二重に起動しない
         if isPaused || isStarting || (wantsRunning && isRunning) { return }
         isStarting = true
