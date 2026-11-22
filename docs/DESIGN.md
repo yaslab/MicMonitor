@@ -14,7 +14,7 @@ Mac のマイク入力をリアルタイムでモニタリングする macOS ア
 | F4 | 設定 | N（1〜60 秒、既定 10 秒）とスペクトログラムのカラーマップを設定画面（⌘,）で変更。カラーマップは選んだものの見本・色の流れ・特徴を表示する |
 | F5 | モニター再生 | 入力音をシステム既定の出力デバイスで再生。オン/オフと音量 |
 | F6 | 入力音量 | 選択中デバイスのシステム入力音量（システム設定 > サウンド > 入力 と同じ値）を表示・変更 |
-| F7 | カード表示 | 画面の最前面に常駐する小さなカード（メーター・波形・スペクトル・入力音量）。ウィンドウ表示と切り替え |
+| F7 | カード表示 | 画面の最前面に常駐する小さなカード（メーター・波形・スペクトルまたはスペクトログラム・入力音量）。ウィンドウ表示と切り替え |
 | F8 | スペクトル | 入力の周波数スペクトル。ウィンドウ表示は波形の下、カード表示はメーターの下 |
 | F9 | 計測の停止 | 計測（マイク入力）を止めて、マイクの使用をやめる。ボタンで再開 |
 | F10 | スペクトログラム | スペクトルの直近 N 秒の履歴を濃淡で表示（横軸が時間、縦軸が対数周波数）。ウィンドウ表示は波形とスペクトルの間。カード表示はスペクトルの欄をクリックしてスペクトルと切り替える（選択は保存）。時間軸は波形とそろえる |
@@ -30,7 +30,10 @@ Mac のマイク入力をリアルタイムでモニタリングする macOS ア
 - 入力デバイスの一覧からはプライベートな集約デバイス（AVAudioEngine が既定の入出力を束ねるために自動で作る `CADefaultDeviceAggregate-<pid>-<n>`）を除く。判定はトランスポートの種類が集約で、構成に `kAudioAggregateDeviceIsPrivateKey` があるもの。ユーザーが作った集約デバイスは残す
 - 「システム既定」選択時は OS 側の既定マイク変更に追従
 - 選択中のデバイスが外れたらシステム既定で継続し、再接続されたら元のデバイスに戻す
-- 選択デバイス・N・モニター再生のオン/オフと音量は UserDefaults に保存
+- 次の設定は UserDefaults に保存する（保存先はすべて UserDefaults で、ファイルやデータベースは使わない）
+  - `MonitorModel`: 選択デバイス（UID と、未接続のときに表示する名前）・N・モニター再生のオン/オフと音量
+  - `DisplayModeController`: 表示モード（6.1 節）、カードの位置と幅（`setFrameAutosaveName`）
+  - `@AppStorage`: カードの各セクションの表示（6.1 節）、スペクトログラムのカラーマップ
 - 対象外: 録音・保存
 - 配布: 自分用。署名・公証は考慮しない
 
@@ -53,14 +56,22 @@ AVAudioEngine でデバイス切り替えが不安定な場合は、AUHAL を直
 ```
 MainActor                                   リアルタイムスレッド        ポンプのタスク（5 ms ごと）
 ─────────────────────────────────────       ────────────────────        ─────────────────────────────
-ContentView ─ TimelineView(.animation)      inputNode                   AudioPump.drain
-  ├ DevicePicker                              └▶ AVAudioSinkNode           ├▶ LevelStore.process
-  ├ LevelMeterSection ◀── levels.read() ─┐        └▶ SampleRingBuffer ──▶ ├▶ WaveformHistory.process
-  ├ WaveformSection ◀── waveform.snapshot()┤          （ロックなし）        └▶ MonitorPlayback（別エンジン）─▶ 出力
-  └ MonitorControls                       │
-SettingsView                              │   LevelStore / WaveformHistory は Mutex で保護された Sendable クラス。
-MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使うのはポンプのタスクと MainActor だけ
-     └── AudioDeviceManager（HAL リスナー）
+ContentView / CardView                      inputNode                   AudioPump.drain
+  ├ DevicePicker（ウィンドウのみ）            └▶ AVAudioSinkNode           ├▶ LevelStore.process
+  ├ InputVolumeControl                            └▶ SampleRingBuffer ──▶ ├▶ WaveformHistory.process
+  ├ LiveMonitorView ─ TimelineView(.animation)       （ロックなし）        ├▶ SpectrumAnalyzer.process
+  │   ├ LevelMeterSection ◀── levels.read() ─────────┐                    ├▶ SpectrogramHistory.process
+  │   ├ WaveformSection ◀── waveform.snapshot() ─────┤                    └▶ MonitorPlayback（別エンジン）─▶ 出力
+  │   ├ SpectrogramSection ◀── spectrogram.snapshot()┤
+  │   └ SpectrumSection ◀── spectrum.snapshot() ─────┤
+  └ MonitorControls（ウィンドウのみ）                 │
+SettingsView                                         │
+MonitorModel ── AudioCaptureEngine ──────────────────┘
+     ├── AudioDeviceManager（HAL リスナー）
+     └── InputVolumeController（HAL リスナー）
+
+LevelStore / WaveformHistory / SpectrumAnalyzer / SpectrogramHistory は Mutex で保護された Sendable クラス。
+Mutex を使うのはポンプのタスクと MainActor だけ
 ```
 
 | 型 | 責務 | 分離 |
@@ -72,7 +83,7 @@ MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使�
 | `AudioDeviceManager` | 入力デバイス一覧と既定入力デバイスを保持。変化したら `onChange` を呼ぶ | MainActor |
 | `AudioCaptureEngine` | エンジン構築（inputNode → シンクノード）・停止。構成変更通知を中継 | MainActor（シンクのクロージャは nonisolated） |
 | `SampleRingBuffer` | シンクノードからポンプへサンプルを渡すロックなしのリングバッファ（書き込み 1・読み出し 1、`Atomic` の添字、1 秒分） | 書: リアルタイムスレッド / 読: ポンプ |
-| `AudioPump` | 5 ms ごとにリングバッファを読み出し、レベル・波形・スペクトル・モニター再生に渡す | `Task.detached` のループ（`Task.sleep(until:)` で周期を保つ。キャンセルで止まる） |
+| `AudioPump` | 5 ms ごとにリングバッファを読み出し、レベル・波形・スペクトル・スペクトログラム・モニター再生に渡す | `Task.detached` のループ（`Task.sleep(until:)` で周期を保つ。キャンセルで止まる） |
 | `MonitorPlayback` | 出力専用の AVAudioEngine。ポンプから受け取ったバッファをコピーして `AVAudioPlayerNode` で再生 | MainActor（`enqueue` だけ nonisolated でポンプのタスクから呼ぶ） |
 | `LevelStore` | ch ごとの Peak（前回の読み出し以降の最大値）・RMS・クリップ（前回の読み出し以降に検出したか） | Sendable + Mutex |
 | `WaveformHistory` | ch ごとのリングバッファ（ビンごとに最大値・最小値・RMS） | Sendable + Mutex |
@@ -80,7 +91,7 @@ MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使�
 | `SpectrogramHistory` | 一定間隔でスペクトルを求め（内部に専用の `SpectrumAnalyzer` を持つ）、帯域ごとに量子化した列をリングバッファに保持する | Sendable + Mutex |
 | `SpectrogramColormap` | スペクトログラムのカラーマップの種類・説明と、レベルから色への対応表 | 値型（設定は `@AppStorage`） |
 | `SpectrumBands` | FFT のビンを対数間隔の帯域にまとめる（スペクトル表示とスペクトログラムで共通） | 値型 |
-| `SpectrumBallistics` | FFT のビンを対数間隔の帯域にまとめ、減衰とピークホールドを行う | MainActor（View が所有） |
+| `SpectrumBallistics` | `SpectrumBands` でまとめた帯域ごとに、表示側の減衰とピークホールドを行う | MainActor（View が所有） |
 | `MeterBallistics` | 表示側の減衰・ピークホールド・クリップ表示の保持（1.5 秒） | MainActor（View が所有） |
 | `MonitorModel` | 権限、選択、設定、エンジンの再構成を統括 | MainActor |
 
@@ -103,7 +114,7 @@ MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使�
 - `AVAudioEngineConfigurationChange` 通知（サンプルレート変更など。`NotificationCenter.notifications(named:object:)` を MainActor のタスクで受け取る）。300 ms 待ってから作り直す
   - この通知は起動直後にも届くため、エンジンが止まっているか、入力フォーマットが変わったときだけ作り直す（毎回作り直すと再起動のループになる）
 
-ch 数が変わらなければ波形履歴は保持する。
+ch 数が変わらなければ波形履歴は保持する。スペクトログラムの履歴は全チャンネルの平均なので、ch 数やサンプルレートが変わっても保持する。
 
 ## 4. 信号処理
 
@@ -149,18 +160,18 @@ ch 数が変わらなければ波形履歴は保持する。
 
 ## 6. UI
 
-- メイン: デバイスピッカー（フォールバック中はその旨を表示）、フォーマット表示（例: 48 kHz · 2 ch）、入力音量スライダー、メーター（ch ごと: ラベル、バー、クリップ、数値＝ピークホールドの dB の順）、dB 目盛り、波形（ch ごと）、時間軸（-N s 〜 now）、モニター再生の操作。
+- メイン（上から）: デバイスピッカー（フォールバック中はその旨を表示）とフォーマット表示（例: 48 kHz · 2 ch）、右上に計測の停止ボタンと「カード表示」ボタン、入力音量スライダー、メーター（ch ごと: ラベル、バー、クリップ、数値＝ピークホールドの dB の順）、dB 目盛り、波形（ch ごと）と時間軸（-N s 〜 now）、スペクトログラムと時間軸、スペクトルと周波数軸、モニター再生の操作。
 - マイク権限が拒否されている場合は、システム設定を開くボタンを出す。
 - 計測の停止・再開: ウィンドウは右上（「カード表示」ボタンの左）、カードはヘッダーの左端のボタン、表示メニューの「計測を停止 / 計測を開始」（⌘.）。
   - 名前は「計測」とする（入力をヘッドホンに流す「モニター再生」と区別する）。アイコンは一時停止・再生（`pause.fill` / `play.fill`）で、入力音量の横のマイクのボタン（システムの入力ミュート。他のアプリの録音にも効く）と区別する。
   - 止めるとオーディオエンジンを解放するので、マイクの使用（メニューバーのマイク使用中の表示）も止まる。モニター再生も止まる。
-  - 止めている間はメーターとスペクトルの代わりに「計測を停止中」と表示し、波形は止めた時点のまま表示する。
+  - 止めている間はメーターとスペクトルの代わりに「計測を停止中」と表示し、波形とスペクトログラムは止めた時点のまま表示する。カード表示では、スペクトルの欄がスペクトログラムのときだけ表示し、止めている間はスペクトルとの切り替えはできない。
   - 止めている間は、ウィンドウやカードが表示されたとき（`start()` が呼ばれる）や、デバイスの抜き差し・モニター再生の切り替えでも再開しない。状態は保存せず、次回の起動時は計測を始める。
-- 設定（⌘,）: 波形履歴の長さ（スライダー + ステッパー、1〜60 秒）。
+- 設定（⌘,）: 「波形」の節に履歴の長さ N（スライダー + ステッパー、1〜60 秒。波形とスペクトログラムの両方に効く）、「スペクトログラム」の節にカラーマップの選択と、選んだものの見本・色の流れ・特徴。
 
 ### 6.1 カード表示
 
-- 内容: デバイス名、波形ボタン、スペクトルボタン、「…」メニュー（上から「ウィンドウ表示に切り替え」「設定…」「終了」）、ch ごとのメーター（ウィンドウの半分の高さ: バー 7pt・文字 9pt。チャンネル番号と dB 目盛りなし）、入力音量スライダー（ラベルなし）。波形（ch ごとにスペクトルと同じ高さ 36pt。チャンネル番号と時間軸なし）はヘッダーの波形ボタンで表示・非表示を切り替えられ、設定は UserDefaults（`cardShowsWaveform`、既定は表示）に保存する。スペクトル（高さ 36pt）も同様にスペクトルボタンで切り替えられ、設定は `cardShowsSpectrum`（既定は表示）に保存する。スペクトルの欄はクリックでスペクトログラムと切り替えられ、どちらを表示するかは `cardShowsSpectrogram`（既定はスペクトル）に保存する。表示していないセクションは計算もしない。エラーがあれば 2 行まで表示。
+- 内容: 計測の停止ボタン、デバイス名、波形ボタン、スペクトルボタン、「…」メニュー（上から「ウィンドウ表示に切り替え」「設定…」「終了」）、ch ごとのメーター（ウィンドウの半分の高さ: バー 7pt・文字 9pt。チャンネル番号と dB 目盛りなし）、入力音量スライダー（ラベルなし）。波形（ch ごとにスペクトルと同じ高さ 36pt。チャンネル番号と時間軸なし）はヘッダーの波形ボタンで表示・非表示を切り替えられ、設定は UserDefaults（`cardShowsWaveform`、既定は表示）に保存する。スペクトル（高さ 36pt）も同様にスペクトルボタンで切り替えられ、設定は `cardShowsSpectrum`（既定は表示）に保存する。スペクトルの欄はクリックでスペクトログラムと切り替えられ、どちらを表示するかは `cardShowsSpectrogram`（既定はスペクトル）に保存する。表示していないセクションは計算もしない。エラーがあれば 2 行まで表示。
 - 切り替え: ウィンドウの「カード表示」ボタン、カードの「…」メニュー、表示メニュー、⌘⇧M。表示モードは UserDefaults に保存し、次回起動時も同じモードで開く（カードの「終了」で終了した場合は次回もカードで開く）。
 - 実装: AppKit の `NSPanel`（`.floating`、`.nonactivatingPanel`、タイトルバーは透明で非表示）に `NSHostingView` で SwiftUI のビューを載せる。背景は `NSVisualEffectView`（`.hudWindow`、`.behindWindow`）で半透明。
   - `.nonactivatingPanel`: クリックしても前面のアプリを切り替えない。`hidesOnDeactivate = false` で他のアプリ使用中も表示し続ける。
@@ -173,7 +184,7 @@ ch 数が変わらなければ波形履歴は保持する。
   - Dock のアイコンをクリックしたら、カード表示中ならウィンドウ表示に戻す（カード表示中は Dock にアイコンを出さないため、通常は起きない）。
 - Dock: カード表示中は `NSApp.setActivationPolicy(.accessory)` で Dock と ⌘Tab に出さない。ウィンドウ表示に戻すときに `.regular` に戻す。`.accessory` の間はメニューバーが出ないため、⌘⇧M などのメニューのショートカットは使えず、ウィンドウへの切り替え・設定・終了はカードの「…」メニューから行う。カード表示で起動したときは起動直後に切り替えるため、Dock のアイコンが一瞬見えることがある。
 - 設定: カードの `NSHostingView` の中から `openSettings` を呼んでも設定ウィンドウは開かないため、Commands で受け取った `openSettings` を `DisplayModeController` に渡して使う。`.accessory` のままでは前面に出ないので、設定ウィンドウを開いている間だけ `.regular` にし（Dock にアイコンが出る）、閉じたら（`NSWindow.WillCloseMessage` で受け取る。macOS 27 からの型付きの通知で、メインスレッドで届く）カード表示中なら `.accessory` に戻す。
-- 描画: メーター（と波形）の描画（`LiveMonitorView`）はウィンドウとカードで共有する。`LevelStore.read()` は読むたびに Peak の保持をリセットするため、表示していない側は描画を止める。
+- 描画: メーター・波形・スペクトル・スペクトログラムの描画（`LiveMonitorView`）はウィンドウとカードで共有する。`LevelStore.read()` は読むたびに Peak の保持をリセットするため、表示していない側は描画を止める。
 - 計測の開始はウィンドウとカードの両方から呼ばれるため、動作中や開始処理中なら何もしない。カード表示中もウィンドウを隠すだけなので計測は止めない。
 
 ## 7. ファイル構成
@@ -184,11 +195,14 @@ MicMon/
   Audio/AudioInputDevice.swift, CoreAudioHAL.swift, AudioDeviceManager.swift,
         AudioCaptureEngine.swift, SampleRingBuffer.swift, AudioPump.swift, MonitorPlayback.swift,
         InputVolumeController.swift, LevelStore.swift,
-        WaveformHistory.swift, Decibel.swift
+        WaveformHistory.swift, Decibel.swift,
+        SpectrumAnalyzer.swift, SpectrumBands.swift, SpectrogramHistory.swift
   Model/DeviceSelection.swift, MonitorModel.swift, TimingProbe.swift（DEBUG のみ・計測用）
   Views/ContentView.swift, DevicePicker.swift, LevelMeterView.swift, MeterBallistics.swift,
         WaveformView.swift, MonitorControls.swift, InputVolumeControl.swift, SettingsView.swift,
-        LiveMonitorView.swift, CardView.swift, CaptureToggle.swift, WindowAccessor.swift
+        LiveMonitorView.swift, CardView.swift, CaptureToggle.swift, IconToggleButton.swift,
+        WindowAccessor.swift, SpectrumView.swift, SpectrogramView.swift,
+        SpectrogramColormap.swift, SpectrogramColormapTables.swift
 ```
 
 ## 8. 今後
