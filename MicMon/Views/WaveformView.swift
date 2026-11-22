@@ -25,20 +25,29 @@ struct WaveformSection: View {
                 }
             }
             if !compact {
-                HStack {
-                    Text("-\(seconds)s")
-                    Spacer()
-                    if seconds > 1 {
-                        Text(String(format: "-%gs", Double(seconds) / 2))
-                        Spacer()
-                    }
-                    Text("now")
-                }
-                .font(.system(size: 9).monospacedDigit())
-                .foregroundStyle(.secondary)
-                .padding(.leading, 28)
+                TimeAxis(seconds: seconds)
+                    .padding(.leading, 28)
             }
         }
+    }
+}
+
+/// 履歴の時間軸の目盛り（左端が `seconds` 秒前、右端が現在）。波形とスペクトログラムで共通に使う。
+struct TimeAxis: View {
+    let seconds: Int
+
+    var body: some View {
+        HStack {
+            Text("-\(seconds)s")
+            Spacer()
+            if seconds > 1 {
+                Text(String(format: "-%gs", Double(seconds) / 2))
+                Spacer()
+            }
+            Text("now")
+        }
+        .font(.system(size: 9).monospacedDigit())
+        .foregroundStyle(.secondary)
     }
 }
 

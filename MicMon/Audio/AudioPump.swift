@@ -1,6 +1,6 @@
 import AVFoundation
 
-/// `SampleRingBuffer` を一定間隔で読み出し、レベル・波形・スペクトル・モニター再生に渡す。
+/// `SampleRingBuffer` を一定間隔で読み出し、レベル・波形・スペクトル・スペクトログラム・モニター再生に渡す。
 ///
 /// リアルタイムスレッドではサンプルのコピーだけを行い、Mutex を使う集計や再生の予約は
 /// `start()` が返すタスクで行う。間隔ぶん（最大 5 ms 程度）の遅れが加わる。
@@ -14,6 +14,7 @@ struct AudioPump: Sendable {
     let levels: LevelStore
     let waveform: WaveformHistory
     let spectrum: SpectrumAnalyzer
+    let spectrogram: SpectrogramHistory
     /// 所有は `AudioCaptureEngine`。タスクが最後の参照を持っていても、解放は `MonitorPlayback` の
     /// isolated deinit により MainActor で行われる。
     let playback: MonitorPlayback?
@@ -55,6 +56,7 @@ struct AudioPump: Sendable {
             levels.process(data, channelCount: channels, frameCount: frames)
             waveform.process(data, channelCount: channels, frameCount: frames)
             spectrum.process(data, channelCount: channels, frameCount: frames)
+            spectrogram.process(data, channelCount: channels, frameCount: frames)
             playback?.enqueue(scratch)
             if frames < Int(Self.chunkFrames) { return }
         }

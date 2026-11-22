@@ -2,12 +2,14 @@ import AppKit
 import SwiftUI
 
 /// 画面の最前面に常駐する小さなカード。メーター・波形・スペクトル（波形とスペクトルは切り替え可）・入力音量を表示する。
+/// スペクトルの欄はクリックでスペクトログラムと切り替わる。
 /// どこを掴んでもドラッグで移動でき、離したときに画面端の近くなら吸着する。
 struct CardView: View {
     @Environment(MonitorModel.self) private var model
     @Environment(DisplayModeController.self) private var display
     @AppStorage("cardShowsWaveform") private var showsWaveform = true
     @AppStorage("cardShowsSpectrum") private var showsSpectrum = true
+    @AppStorage("cardShowsSpectrogram") private var showsSpectrogram = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -50,7 +52,7 @@ struct CardView: View {
             }
 
             LiveMonitorView(compact: true, showsWaveform: showsWaveform, showsSpectrum: showsSpectrum,
-                            isActive: display.mode == .card)
+                            cardShowsSpectrogram: $showsSpectrogram, isActive: display.mode == .card)
             InputVolumeControl(compact: true)
         }
         .padding(12)

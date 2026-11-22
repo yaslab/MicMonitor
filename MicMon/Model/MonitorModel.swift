@@ -25,6 +25,7 @@ final class MonitorModel {
     let levels = LevelStore()
     let waveform: WaveformHistory
     let spectrum = SpectrumAnalyzer()
+    let spectrogram: SpectrogramHistory
     private let engine: AudioCaptureEngine
     private let defaults: UserDefaults
     @ObservationIgnored private var pendingRestart: Task<Void, Never>?
@@ -47,11 +48,12 @@ final class MonitorModel {
         didSet { defaults.set(selectedDeviceName, forKey: Keys.deviceName) }
     }
 
-    /// 波形履歴の長さ（秒）。`historyRange` の範囲内で設定すること。
+    /// 波形・スペクトログラムの履歴の長さ（秒）。`historyRange` の範囲内で設定すること。
     var historySeconds: Int {
         didSet {
             defaults.set(historySeconds, forKey: Keys.historySeconds)
             waveform.setCapacity(historySeconds * WaveformHistory.binsPerSecond)
+            spectrogram.setCapacity(historySeconds * SpectrogramHistory.columnsPerSecond)
         }
     }
 
@@ -94,7 +96,9 @@ final class MonitorModel {
         monitorVolume = volume
 
         waveform = WaveformHistory(capacity: seconds * WaveformHistory.binsPerSecond)
-        engine = AudioCaptureEngine(levels: levels, waveform: waveform, spectrum: spectrum)
+        spectrogram = SpectrogramHistory(capacity: seconds * SpectrogramHistory.columnsPerSecond)
+        engine = AudioCaptureEngine(levels: levels, waveform: waveform, spectrum: spectrum,
+                                    spectrogram: spectrogram)
         engine.monitorVolume = volume
 
         deviceManager.onChange = { [weak self] in self?.reconcile() }

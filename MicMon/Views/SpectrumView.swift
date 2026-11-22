@@ -41,54 +41,30 @@ final class SpectrumBallistics {
     static let holdReleaseDBPerSecond: Float = 30
     static let holdSeconds: TimeInterval = 1.5
 
-    /// 各帯域の下端・上端の周波数（帯域数 + 1 個）。
-    private let edges: [Double]
+    private let layout = SpectrumBands()
     private var bands: [SpectrumBand]
     private var holds: [PeakHold]
     private var clock = FrameClock()
 
     init() {
-        let octaves = log2(SpectrumScale.maxFrequency / SpectrumScale.minFrequency)
-        let count = Int((octaves * Double(SpectrumScale.bandsPerOctave)).rounded())
-        edges = (0...count).map {
-            SpectrumScale.minFrequency * pow(2, Double($0) / Double(SpectrumScale.bandsPerOctave))
-        }
         bands = Array(repeating: SpectrumBand(levelDB: SpectrumScale.floorDB, holdDB: SpectrumScale.floorDB),
-                      count: count)
-        holds = Array(repeating: PeakHold(SpectrumScale.floorDB), count: count)
+                      count: layout.count)
+        holds = Array(repeating: PeakHold(SpectrumScale.floorDB), count: layout.count)
     }
 
     func update(snapshot: SpectrumSnapshot, now: Date) -> [SpectrumBand] {
         let dt = clock.step(to: now)
         let decay = Self.releaseDBPerSecond * dt
         let holdDecay = Self.holdReleaseDBPerSecond * dt
-        let amplitudes = snapshot.amplitudes
-        let binWidth = snapshot.binWidth
+        let amplitudes = layout.amplitudes(of: snapshot)
 
         for i in bands.indices {
-            let db = SpectrumScale.decibel(bandAmplitude(amplitudes, binWidth: binWidth,
-                                                         lower: edges[i], upper: edges[i + 1]))
+            let db = SpectrumScale.decibel(amplitudes[i])
             let level = max(db, bands[i].levelDB - decay)
             holds[i].update(peak: db, level: level, release: holdDecay, holdSeconds: Self.holdSeconds, now: now)
             bands[i] = SpectrumBand(levelDB: level, holdDB: holds[i].value)
         }
         return bands
-    }
-
-    /// 帯域に含まれるビンの最大値。ビンより狭い帯域（低域）は中心周波数で隣のビンと線形補間する。
-    private func bandAmplitude(_ amplitudes: [Float], binWidth: Double, lower: Double, upper: Double) -> Float {
-        guard binWidth > 0, amplitudes.count > 1 else { return 0 }
-        let last = amplitudes.count - 1
-        let lowerBin = Int((lower / binWidth).rounded(.up))
-        let upperBin = min(Int((upper / binWidth).rounded(.down)), last)
-        if lowerBin <= upperBin {
-            return amplitudes[lowerBin...upperBin].max() ?? 0
-        }
-        let position = (lower * upper).squareRoot() / binWidth
-        guard position < Double(last) else { return 0 }
-        let index = Int(position)
-        let fraction = Float(position - Double(index))
-        return amplitudes[index] * (1 - fraction) + amplitudes[index + 1] * fraction
     }
 }
 

@@ -11,7 +11,14 @@ struct LiveMonitorView: View {
     var showsWaveform = true
     /// スペクトルを表示するか。ウィンドウ表示では常に表示し、カード表示では切り替えられる。
     var showsSpectrum = true
+    /// カード表示で、スペクトルの欄にスペクトログラムを出すか（欄をクリックすると切り替わる）。
+    /// ウィンドウ表示では両方を並べるので使わない。
+    var cardShowsSpectrogram: Binding<Bool> = .constant(false)
     let isActive: Bool
+
+    /// ウィンドウ表示では常に両方、カード表示ではスペクトルの欄にどちらか一方を出す。
+    private var showsSpectrogram: Bool { !compact || (showsSpectrum && cardShowsSpectrogram.wrappedValue) }
+    private var showsSpectrumGraph: Bool { !compact || (showsSpectrum && !cardShowsSpectrogram.wrappedValue) }
 
     @Environment(MonitorModel.self) private var model
     @State private var ballistics = MeterBallistics()
@@ -25,13 +32,18 @@ struct LiveMonitorView: View {
         }
     }
 
-    /// 計測を止めている間。メーターとスペクトルは出さず、波形は止めた時点のまま表示する。
+    /// 計測を止めている間。メーターとスペクトルは出さず、波形とスペクトログラムは止めた時点のまま表示する。
+    /// （カード表示でスペクトルの欄がスペクトログラムのときだけ出す。止めている間は切り替えられない）
     private var paused: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 16) {
             PausedNotice(compact: compact)
             if showsWaveform {
                 WaveformSection(snapshot: model.waveform.snapshot(), seconds: model.historySeconds,
                                 compact: compact)
+            }
+            if showsSpectrogram {
+                SpectrogramSection(snapshot: model.spectrogram.snapshot(), seconds: model.historySeconds,
+                                   compact: compact)
             }
         }
     }
@@ -46,12 +58,38 @@ struct LiveMonitorView: View {
                     WaveformSection(snapshot: model.waveform.snapshot(), seconds: model.historySeconds,
                                     compact: compact)
                 }
-                if showsSpectrum {
+                if showsSpectrogram {
+                    SpectrogramSection(snapshot: model.spectrogram.snapshot(), seconds: model.historySeconds,
+                                       compact: compact)
+                        .modifier(CardSpectrumSwitch(isEnabled: compact, showsSpectrogram: cardShowsSpectrogram))
+                }
+                if showsSpectrumGraph {
                     SpectrumSection(bands: spectrumBallistics.update(snapshot: model.spectrum.snapshot(),
                                                                      now: context.date),
                                     compact: compact)
+                        .modifier(CardSpectrumSwitch(isEnabled: compact, showsSpectrogram: cardShowsSpectrogram))
                 }
             }
+        }
+    }
+}
+
+/// カード表示で、スペクトルの欄をクリックするとスペクトルとスペクトログラムを切り替える。
+/// カードはどこを掴んでもドラッグで移動できるので、ボタンではなくタップのジェスチャーにする（動かすとタップにならない）。
+private struct CardSpectrumSwitch: ViewModifier {
+    let isEnabled: Bool
+    @Binding var showsSpectrogram: Bool
+
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .contentShape(Rectangle())
+                .onTapGesture { showsSpectrogram.toggle() }
+                .help(showsSpectrogram ? "クリックでスペクトルに切り替え" : "クリックでスペクトログラムに切り替え")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(showsSpectrogram ? "スペクトルに切り替えます" : "スペクトログラムに切り替えます")
+        } else {
+            content
         }
     }
 }

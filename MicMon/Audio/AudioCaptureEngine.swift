@@ -35,6 +35,7 @@ final class AudioCaptureEngine {
     private let levels: LevelStore
     private let waveform: WaveformHistory
     private let spectrum: SpectrumAnalyzer
+    private let spectrogram: SpectrogramHistory
     private var engine: AVAudioEngine?
     private var playback: MonitorPlayback?
     private var ring: SampleRingBuffer?
@@ -52,10 +53,12 @@ final class AudioCaptureEngine {
         didSet { playback?.volume = monitorVolume }
     }
 
-    init(levels: LevelStore, waveform: WaveformHistory, spectrum: SpectrumAnalyzer) {
+    init(levels: LevelStore, waveform: WaveformHistory, spectrum: SpectrumAnalyzer,
+         spectrogram: SpectrogramHistory) {
         self.levels = levels
         self.waveform = waveform
         self.spectrum = spectrum
+        self.spectrogram = spectrogram
     }
 
     @discardableResult
@@ -95,11 +98,13 @@ final class AudioCaptureEngine {
         levels.configure(channelCount: channels)
         waveform.configure(channelCount: channels, sampleRate: format.sampleRate)
         spectrum.configure(channelCount: channels, sampleRate: format.sampleRate)
+        spectrogram.configure(channelCount: channels, sampleRate: format.sampleRate)
 
         // リアルタイムスレッド（シンクノード）→ リングバッファ → ポンプ（タスク）→ 集計・再生
         let ring = SampleRingBuffer(channelCount: channels, capacity: Int(format.sampleRate * Self.ringSeconds))
         let pump = AudioPump(format: format, ring: ring, levels: levels,
-                             waveform: waveform, spectrum: spectrum, playback: playback)
+                             waveform: waveform, spectrum: spectrum, spectrogram: spectrogram,
+                             playback: playback)
         let sink = AVAudioSinkNode(receiverBlock: Self.makeReceiverBlock(ring: ring))
         engine.attach(sink)
         try engine.connectNode(input, to: sink, format: format)
