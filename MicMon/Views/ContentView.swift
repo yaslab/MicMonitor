@@ -24,6 +24,7 @@ struct ContentView: View {
             HStack(alignment: .top) {
                 DevicePicker()
                 Spacer()
+                CaptureToggle()
                 Button {
                     display.showCard()
                 } label: {

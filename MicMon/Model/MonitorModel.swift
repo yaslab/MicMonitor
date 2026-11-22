@@ -74,6 +74,9 @@ final class MonitorModel {
     private(set) var activeDevice: AudioInputDevice?
     private(set) var activeFormat: CaptureFormat?
     private(set) var isRunning = false
+    /// ユーザーが計測を止めているか。止めている間は `start()` が呼ばれても始めない
+    /// （ウィンドウやカードが表示されたときに呼ばれるため）。次回の起動時は計測を始める。
+    private(set) var isPaused = false
     private(set) var errorMessage: String?
     /// モニター再生だけが失敗したときの理由（計測は続いている）。
     private(set) var monitorErrorMessage: String?
@@ -151,7 +154,7 @@ final class MonitorModel {
     /// ウィンドウ表示とカード表示の両方から呼ばれるため、動作中なら何もしない。
     func start() async {
         // 権限の確認を待っている間にもう一方から呼ばれても、二重に起動しない
-        if isStarting || (wantsRunning && isRunning) { return }
+        if isPaused || isStarting || (wantsRunning && isRunning) { return }
         isStarting = true
         defer { isStarting = false }
         wantsRunning = true
@@ -166,6 +169,32 @@ final class MonitorModel {
         isRunning = false
         levels.reset()
         spectrum.reset()
+    }
+
+    /// 計測を止める。オーディオエンジンを解放するので、マイクの使用も止まる（モニター再生も止まる）。
+    func pause() {
+        guard !isPaused else { return }
+        isPaused = true
+        stop()
+        errorMessage = nil
+        monitorErrorMessage = nil
+        Self.logger.info("Paused by user")
+    }
+
+    /// 止めていた計測を再開する。
+    func resume() async {
+        guard isPaused else { return }
+        isPaused = false
+        Self.logger.info("Resumed by user")
+        await start()
+    }
+
+    func togglePause() {
+        if isPaused {
+            Task { await resume() }
+        } else {
+            pause()
+        }
     }
 
     // MARK: - 内部

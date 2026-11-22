@@ -28,6 +28,7 @@ struct MicMonApp: App {
         .defaultLaunchBehavior(.presented)
         .commands {
             DisplayModeCommands(display: display)
+            CaptureCommands(model: model)
         }
 
         Settings {
@@ -53,6 +54,21 @@ private struct DisplayModeCommands: Commands {
                 display.toggle()
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
+        }
+    }
+}
+
+/// 表示メニューの「計測を停止 / 計測を開始」（⌘.）。カード表示中はメニューバーが出ないため、カードのボタンから操作する。
+private struct CaptureCommands: Commands {
+    let model: MonitorModel
+
+    var body: some Commands {
+        CommandGroup(after: .toolbar) {
+            Button(model.isPaused ? "計測を開始" : "計測を停止") {
+                model.togglePause()
+            }
+            .keyboardShortcut(".", modifiers: .command)
+            .disabled(model.permission == .denied)
         }
     }
 }

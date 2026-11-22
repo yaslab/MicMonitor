@@ -18,6 +18,25 @@ struct LiveMonitorView: View {
     @State private var spectrumBallistics = SpectrumBallistics()
 
     var body: some View {
+        if model.isPaused {
+            paused
+        } else {
+            live
+        }
+    }
+
+    /// 計測を止めている間。メーターとスペクトルは出さず、波形は止めた時点のまま表示する。
+    private var paused: some View {
+        VStack(alignment: .leading, spacing: compact ? 8 : 16) {
+            PausedNotice(compact: compact)
+            if showsWaveform {
+                WaveformSection(snapshot: model.waveform.snapshot(), seconds: model.historySeconds,
+                                compact: compact)
+            }
+        }
+    }
+
+    private var live: some View {
         TimelineView(.animation(paused: !model.isRunning || !isActive)) { context in
             let readings = ballistics.update(levels: model.levels.read(), now: context.date)
             VStack(alignment: .leading, spacing: compact ? 8 : 16) {

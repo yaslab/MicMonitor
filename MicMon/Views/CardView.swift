@@ -12,6 +12,7 @@ struct CardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
+                CaptureToggle(compact: true)
                 Text(model.activeDevice?.name ?? "入力デバイスなし")
                     .font(.caption)
                     .lineLimit(1)
