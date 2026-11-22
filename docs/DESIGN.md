@@ -49,7 +49,7 @@ AVAudioEngine でデバイス切り替えが不安定な場合は、AUHAL を直
 ## 3. アーキテクチャ
 
 ```
-MainActor                                   リアルタイムスレッド        ポンプのキュー（5 ms ごと）
+MainActor                                   リアルタイムスレッド        ポンプのタスク（5 ms ごと）
 ─────────────────────────────────────       ────────────────────        ─────────────────────────────
 ContentView ─ TimelineView(.animation)      inputNode                   AudioPump.drain
   ├ DevicePicker                              └▶ AVAudioSinkNode           ├▶ LevelStore.process
@@ -57,7 +57,7 @@ ContentView ─ TimelineView(.animation)      inputNode                   AudioP
   ├ WaveformSection ◀── waveform.snapshot()┤          （ロックなし）        └▶ MonitorPlayback（別エンジン）─▶ 出力
   └ MonitorControls                       │
 SettingsView                              │   LevelStore / WaveformHistory は Mutex で保護された Sendable クラス。
-MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使うのはポンプのキューと MainActor だけ
+MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使うのはポンプのタスクと MainActor だけ
      └── AudioDeviceManager（HAL リスナー）
 ```
 
@@ -70,8 +70,8 @@ MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使�
 | `AudioDeviceManager` | 入力デバイス一覧と既定入力デバイスを保持。変化したら `onChange` を呼ぶ | MainActor |
 | `AudioCaptureEngine` | エンジン構築（inputNode → シンクノード）・停止。構成変更通知を中継 | MainActor（シンクのクロージャは nonisolated） |
 | `SampleRingBuffer` | シンクノードからポンプへサンプルを渡すロックなしのリングバッファ（書き込み 1・読み出し 1、`Atomic` の添字、1 秒分） | 書: リアルタイムスレッド / 読: ポンプ |
-| `AudioPump` | 5 ms ごとにリングバッファを読み出し、レベル・波形・モニター再生に渡す | 専用の DispatchQueue |
-| `MonitorPlayback` | 出力専用の AVAudioEngine。ポンプから受け取ったバッファをコピーして `AVAudioPlayerNode` で再生 | 予約はポンプのキュー、それ以外は MainActor |
+| `AudioPump` | 5 ms ごとにリングバッファを読み出し、レベル・波形・スペクトル・モニター再生に渡す | `Task.detached` のループ（`Task.sleep(until:)` で周期を保つ。キャンセルで止まる） |
+| `MonitorPlayback` | 出力専用の AVAudioEngine。ポンプから受け取ったバッファをコピーして `AVAudioPlayerNode` で再生 | MainActor（`enqueue` だけ nonisolated でポンプのタスクから呼ぶ） |
 | `LevelStore` | ch ごとの Peak（前回の読み出し以降の最大値）・RMS・クリップ（前回の読み出し以降に検出したか） | Sendable + Mutex |
 | `WaveformHistory` | ch ごとのリングバッファ（ビンごとに最大値・最小値・RMS） | Sendable + Mutex |
 | `SpectrumAnalyzer` | ch ごとに直近 FFT 長ぶんのサンプルを保持し、読み出し時に FFT して振幅スペクトルを返す | Sendable + Mutex |
@@ -82,10 +82,10 @@ MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使�
 ### 3.1 スレッドの方針
 
 - シンクノードのクロージャはリアルタイムスレッドで呼ばれる。ここではリングバッファへのコピーだけを行い、ロック・メモリ確保・MainActor への hop をしない。
-- Mutex を使う集計と再生の予約は、ポンプの専用キューで行う。ポンプの間隔ぶん（最大 5 ms 程度）の遅れが加わる。
+- Mutex を使う集計と再生の予約は、ポンプのタスクで行う。ポンプの間隔ぶん（最大 5 ms 程度）の遅れが加わる。
 - リングバッファがあふれたら（ポンプが 1 秒以上止まった場合）そのブロックを捨てて数える。
 - シンクのクロージャは `nonisolated` な関数の中で生成する（MainActor のコンテキストで作ると、Swift 6 の実行時の分離チェックでクラッシュするため）。
-- `MonitorPlayback` を持つのは `AudioCaptureEngine`（MainActor）だけで、ポンプは弱参照で持つ。解放がメインスレッド以外で起きると AVAudioEngine 内部でデッドロックしてクラッシュするため。
+- `MonitorPlayback` は解放がメインスレッド以外で起きると AVAudioEngine 内部でデッドロックしてクラッシュするため、`@MainActor` のクラスにして `isolated deinit` を持たせる。ポンプのタスクは停止後も次の周期（最大 5 ms）まで参照を持つが、最後の参照がどのスレッドで手放されても解放は MainActor で行われる。
 - 実測（MacBook Air 内蔵マイク、48 kHz）: シンクノード 94 回/秒（512 フレーム）、あふれ 0、描画 60 fps。
 - UI は毎フレーム、ストアからスナップショットを取得して描画する（プル型）。
 
@@ -95,7 +95,7 @@ MonitorModel ── AudioCaptureEngine ───────┘   Mutex を使�
 
 - 解決したデバイスの ID が変わった（選択変更、デバイスの抜き差し、既定デバイスの変更）
 - モニター再生のオン/オフ（オフのときは出力側に一切接続しない）
-- `AVAudioEngineConfigurationChange` 通知（サンプルレート変更など）。300 ms 待ってから作り直す
+- `AVAudioEngineConfigurationChange` 通知（サンプルレート変更など。`NotificationCenter.notifications(named:object:)` を MainActor のタスクで受け取る）。300 ms 待ってから作り直す
   - この通知は起動直後にも届くため、エンジンが止まっているか、入力フォーマットが変わったときだけ作り直す（毎回作り直すと再起動のループになる）
 
 ch 数が変わらなければ波形履歴は保持する。

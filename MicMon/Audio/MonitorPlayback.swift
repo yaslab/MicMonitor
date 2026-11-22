@@ -6,11 +6,13 @@ import Synchronization
 /// macOS の AVAudioEngine は inputNode と outputNode で 1 つの I/O ユニットを共有する。
 /// 入力デバイスを指定したエンジンの出力はそのデバイス（入力専用なら 0 ch）になってしまい、
 /// 別デバイスの出力には再生できない。そのため再生は出力専用のエンジンで行い、
-/// タップで受け取ったバッファをコピーして `AVAudioPlayerNode` に渡す。
+/// ポンプから受け取ったバッファをコピーして `AVAudioPlayerNode` に渡す。
 ///
-/// `enqueue` はタップのスレッドから、それ以外は MainActor から呼ぶ。
-/// `AVAudioPlayerNode.scheduleBuffer` はスレッドセーフ。
-final class MonitorPlayback: @unchecked Sendable {
+/// `enqueue` だけが nonisolated でポンプのタスクから呼ばれる（`AVAudioPlayerNode.scheduleBuffer` はスレッドセーフ）。
+/// 解放がメインスレッド以外で起きると AVAudioEngine の内部でデッドロックするため、deinit は MainActor で行う
+/// （ポンプのタスクや再生の完了コールバックが最後の参照を手放しても、MainActor に移ってから解放される）。
+@MainActor
+final class MonitorPlayback {
     /// 再生待ちがこれを超えたら入力を捨てる（入出力のクロック差で遅延が増え続けるのを防ぐ）。
     private static let maxLatencySeconds = 0.25
 
@@ -36,6 +38,8 @@ final class MonitorPlayback: @unchecked Sendable {
         }
     }
 
+    isolated deinit {}
+
     var volume: Float {
         get { player.volume }
         set { player.volume = newValue }
@@ -48,8 +52,8 @@ final class MonitorPlayback: @unchecked Sendable {
         engine.stop()
     }
 
-    /// タップのバッファは呼び出し後に再利用されるため、コピーしてから予約する。
-    func enqueue(_ buffer: AVAudioPCMBuffer) {
+    /// ポンプの作業用バッファは呼び出し後に再利用されるため、コピーしてから予約する。
+    nonisolated func enqueue(_ buffer: AVAudioPCMBuffer) {
         let frames = Int(buffer.frameLength)
         guard frames > 0,
               pendingFrames.load(ordering: .relaxed) + frames <= maxPendingFrames,
