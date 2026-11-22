@@ -25,6 +25,7 @@ final class DisplayModeController {
     @ObservationIgnored private var panel: NSPanel?
     @ObservationIgnored private var dragStart: (mouse: NSPoint, origin: NSPoint)?
     @ObservationIgnored private var openMainWindow: (() -> Void)?
+    @ObservationIgnored private var openSettingsWindow: (() -> Void)?
 
     private static let modeKey = "displayMode"
     private static let cardFrameName = "MicMonCard"
@@ -46,6 +47,16 @@ final class DisplayModeController {
         AppDelegate.onLaunch = { [weak self] in
             if self?.mode == .card { self?.showCard() }
         }
+        // カード表示中に開いた設定ウィンドウを閉じたら、Dock のアイコンをまた隠す
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil,
+                                               queue: .main) { [weak self] notification in
+            let identifier = (notification.object as? NSWindow)?.identifier?.rawValue
+            MainActor.assumeIsolated {
+                let isSettings = identifier.map(Self.isSettingsWindow) ?? false
+                guard isSettings, let self, self.mode == .card else { return }
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
     }
 
     /// メインウィンドウが表示されたときに呼ぶ。カード表示中なら隠す。
@@ -60,6 +71,22 @@ final class DisplayModeController {
         openMainWindow = action
     }
 
+    /// 設定ウィンドウを開く処理（SwiftUI の `openSettings`）。メニューの Commands から渡される。
+    func setOpenSettings(_ action: @escaping () -> Void) {
+        openSettingsWindow = action
+    }
+
+    /// 設定ウィンドウを開く。カードの「…」メニューから呼ぶ。
+    ///
+    /// カードの `NSHostingView` の中から `openSettings` を呼んでも開かないため、アプリのシーン
+    /// （Commands）から受け取った処理を使う。また `.accessory` のままでは設定ウィンドウが前面に
+    /// 出ないので、開いている間だけ `.regular` にする（閉じたら `.accessory` に戻す）。
+    func showSettings() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        openSettingsWindow?()
+    }
+
     func toggle() {
         mode == .window ? showCard() : showWindow()
     }
@@ -70,10 +97,14 @@ final class DisplayModeController {
         self.panel = panel
         panel.orderFrontRegardless()
         mainWindow?.orderOut(nil)
+        // カード表示中は Dock と ⌘Tab に出さない（メニューバーも出なくなる）
+        NSApp.setActivationPolicy(.accessory)
     }
 
     func showWindow() {
         setMode(.window)
+        // Dock のアイコンとメニューバーを戻す
+        NSApp.setActivationPolicy(.regular)
         panel?.orderOut(nil)
         if let mainWindow {
             mainWindow.makeKeyAndOrderFront(nil)
@@ -130,6 +161,11 @@ final class DisplayModeController {
     }
 
     // MARK: - 内部
+
+    /// SwiftUI の `Settings` シーンのウィンドウか（識別子は `com_apple_SwiftUI_Settings_window`）。
+    private static func isSettingsWindow(_ identifier: String) -> Bool {
+        identifier.contains("Settings")
+    }
 
     private func setMode(_ newMode: DisplayMode) {
         mode = newMode

@@ -20,8 +20,11 @@ struct CardView: View {
                 SectionToggle(isOn: $showsWaveform, systemImage: "waveform", name: "波形")
                 SectionToggle(isOn: $showsSpectrum, systemImage: "chart.bar.xaxis", name: "スペクトル")
                 Menu {
-                    Button("ウィンドウ表示に切替") {
+                    Button("ウィンドウ表示に切り替え") {
                         display.showWindow()
+                    }
+                    Button("設定…") {
+                        display.showSettings()
                     }
                     Divider()
                     Button("終了") {

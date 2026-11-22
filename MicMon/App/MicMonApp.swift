@@ -41,10 +41,13 @@ struct MicMonApp: App {
 private struct DisplayModeCommands: Commands {
     let display: DisplayModeController
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some Commands {
         // メインウィンドウがまだ作られていないときに、カードから開けるようにする
         let _ = display.setOpenMainWindow { openWindow(id: MicMonApp.mainWindowID) }
+        // カードから設定を開けるようにする（カードのビューの中から openSettings を呼んでも開かない）
+        let _ = display.setOpenSettings { openSettings() }
         CommandGroup(after: .toolbar) {
             Button(display.mode == .card ? "ウィンドウ表示に切り替え" : "カード表示に切り替え") {
                 display.toggle()
