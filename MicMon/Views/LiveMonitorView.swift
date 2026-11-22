@@ -11,7 +11,7 @@ struct LiveMonitorView: View {
     var showsWaveform = true
     /// スペクトルを表示するか。ウィンドウ表示では常に表示し、カード表示では切り替えられる。
     var showsSpectrum = true
-    var isActive = true
+    let isActive: Bool
 
     @Environment(MonitorModel.self) private var model
     @State private var ballistics = MeterBallistics()

@@ -3,9 +3,8 @@ import SwiftUI
 struct WaveformSection: View {
     let snapshot: WaveformSnapshot
     let seconds: Int
-    var showsTimeAxis = true
     /// カード表示用: チャンネル番号と時間軸を省き、1 段をスペクトルと同じ高さにする。
-    var compact = false
+    let compact: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 2 : 4) {
@@ -25,7 +24,7 @@ struct WaveformSection: View {
                     }
                 }
             }
-            if showsTimeAxis && !compact {
+            if !compact {
                 HStack {
                     Text("-\(seconds)s")
                     Spacer()

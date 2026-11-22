@@ -94,7 +94,7 @@ final class SpectrumBallistics {
 
 struct SpectrumSection: View {
     let bands: [SpectrumBand]
-    var compact = false
+    let compact: Bool
 
     private static let compactAxisFrequencies: [Double] = [100, 1000, 10_000]
     private static let gutterWidth: CGFloat = 20
@@ -151,8 +151,8 @@ private struct FrequencyAxis: View {
 struct SpectrumView: View {
     let bands: [SpectrumBand]
     /// グラフの中に描く周波数の目盛り（カード表示用）。
-    var labels: [Double] = []
-    var showsGrid = true
+    let labels: [Double]
+    let showsGrid: Bool
 
     private static let gridDB: [Float] = [-20, -40, -60, -80]
 

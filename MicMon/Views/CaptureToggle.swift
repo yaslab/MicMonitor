@@ -30,7 +30,7 @@ struct CaptureToggle: View {
 
 /// 計測を止めている間、メーターの代わりに出す表示。
 struct PausedNotice: View {
-    var compact = false
+    let compact: Bool
 
     var body: some View {
         Label("計測を停止中", systemImage: "pause.circle")

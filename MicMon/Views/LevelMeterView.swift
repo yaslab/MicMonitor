@@ -2,9 +2,9 @@ import SwiftUI
 
 struct LevelMeterSection: View {
     let readings: [MeterReading]
-    var showsScale = true
+    let showsScale: Bool
     /// カード表示用: バーと文字を半分ほどの高さにする。
-    var compact = false
+    let compact: Bool
     let onResetClip: () -> Void
 
     private static let labelWidth: CGFloat = 20
