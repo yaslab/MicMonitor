@@ -7,28 +7,45 @@ SPEC.md（仕様）の第 6 章に対応する見た目の資料。仕様と食�
 
 ### ダークモード
 
-| スクリーンショット | ソース | 内容 | SPEC.md |
-|---|---|---|---|
-| screenshots/01-window-running.png | source/Main.dc.html | ウィンドウ表示（計測中） | 6 |
-| screenshots/02-window-paused.png | source/WindowPaused.dc.html | 計測を停止中（Main を paused で表示） | 6（計測の停止） |
-| screenshots/03-window-no-permission.png | source/WindowNoPermission.dc.html | マイク権限なし（Main を denied で表示） | 6 |
-| screenshots/04-settings.png | source/Settings.dc.html | 設定（⌘,） | 6, F4 |
-| screenshots/05-card.png | source/Card.dc.html | カード表示（単体） | 6.1 |
-| screenshots/06-card-variants.png | source/CardVariants.dc.html | カード表示のバリエーション（通常・スペクトログラム・停止中・メニュー・最小幅/1ch/エラー） | 6.1 |
+| ソース | 内容 | SPEC.md |
+|---|---|---|
+| source/Main.dc.html | ウィンドウ表示（計測中） | 6 |
+| source/WindowPaused.dc.html | 計測を停止中（Main を paused で表示） | 6（計測の停止） |
+| source/WindowNoPermission.dc.html | マイク権限なし（Main を denied で表示） | 6 |
+| source/Settings.dc.html | 設定（⌘,） | 6, F4 |
+| source/Card.dc.html | カード表示（単体） | 6.1 |
+| source/CardVariants.dc.html | カード表示のバリエーション（通常・スペクトログラム・停止中・メニュー・最小幅/1ch/エラー） | 6.1 |
 
 ### ライトモード
 
-| スクリーンショット | ソース | 内容 |
-|---|---|---|
-| screenshots/11-light-window-running.png | source/WindowLight.dc.html | ウィンドウ表示（計測中） |
-| screenshots/12-light-window-paused.png | source/WindowPausedLight.dc.html | 計測を停止中 |
-| screenshots/13-light-window-no-permission.png | source/WindowNoPermissionLight.dc.html | マイク権限なし |
-| screenshots/14-light-settings.png | source/SettingsLight.dc.html | 設定（⌘,） |
-| screenshots/15-light-card-variants.png | source/CardVariantsLight.dc.html | カード表示のバリエーション |
+| ソース | 内容 |
+|---|---|
+| source/WindowLight.dc.html | ウィンドウ表示（計測中） |
+| source/WindowPausedLight.dc.html | 計測を停止中 |
+| source/WindowNoPermissionLight.dc.html | マイク権限なし |
+| source/SettingsLight.dc.html | 設定（⌘,） |
+| source/CardVariantsLight.dc.html | カード表示のバリエーション |
+
+source/canvas.json は、Claude の Artifact「MicMonitor 画面デザイン」のキャンバスで、上の画面をどう並べるか（位置・大きさ・題名・メモ）を書いた索引。画面の見た目には関わらない。
 
 ライトモードのソースは、Main・Settings・Card に `theme="light"` を渡して表示しているだけの小さなファイル。画面の中身と色の切り替えは Main.dc.html・Settings.dc.html・Card.dc.html の `THEMES`（`dark` / `light`）にある。
 
-スクリーンショットは 2 倍解像度（Retina 相当）。ウィンドウは 760 × 900 pt、設定は 560 × 720 pt、カードは幅 300 pt（最小 220）。Mac 以外のフォントで描画しているため、文字の形は実機と少し違う。
+ウィンドウは 760 × 900 pt、設定は 560 × 720 pt、カードは幅 300 pt（最小 220）。ブラウザで表示すると、Mac 以外の環境では文字の形が実機と少し違う。
+
+## ソースをブラウザで開く
+
+`source/support.js` は .dc.html を表示するための簡易ランタイム（Design キャンバスの本来のランタイムの互換版）。
+
+- Main・Settings・Card 以外のファイルは別のファイルを読み込むため、ブラウザの制限で直接（file://）は開けない。ローカルサーバー経由で開く:
+
+  ```
+  cd docs/ui/source
+  python3 -m http.server 8000
+  ```
+
+  → http://localhost:8000/WindowLight.dc.html など
+- Main・Settings・Card はダブルクリックで直接開ける（CardVariants も Card を読み込むのでサーバー経由）。
+- ボタン（計測の停止、モニター再生、カラーマップの選択など）はクリックで動く。
 
 ## ソース（.dc.html）の読み方
 
