@@ -1,11 +1,11 @@
-# MicMon
+# MicMonitor
 
 Mac のマイク入力（レベル・波形・スペクトル・スペクトログラム）をリアルタイムに確認する macOS アプリ。SwiftUI + AVAudioEngine + Core Audio HAL。
 
 - 仕様: @docs/SPEC.md（スレッドとエンジン再構成の方針は第 3 章）
 - 画面デザイン: docs/ui/README.md と docs/ui/source の HTML。仕様と食い違うときは SPEC.md が優先
 - ビルド・プレビュー・実行: Xcode MCP（`xcrun mcpbridge`）を使う。Xcode の GUI を開いていなくても、先に XcodeOpenWorkspace でプロジェクトを開けば使える
-- `MicMon/` はフォルダ参照なので、ファイルの追加・削除でプロジェクトファイルを編集する必要はない
+- `MicMonitor/` はフォルダ参照なので、ファイルの追加・削除でプロジェクトファイルを編集する必要はない
 
 ## 落とし穴
 

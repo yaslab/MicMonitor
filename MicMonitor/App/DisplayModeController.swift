@@ -29,7 +29,7 @@ final class DisplayModeController {
     @ObservationIgnored private var windowCloseObservation: NotificationCenter.ObservationToken?
 
     private static let modeKey = "displayMode"
-    private static let cardFrameName = "MicMonCard"
+    private static let cardFrameName = "MicMonitorCard"
     /// 高さは中身に合わせて決まる（ここでの高さは最初の仮の値）。
     static let cardDefaultSize = NSSize(width: 300, height: 100)
     static let cardMinimumWidth: CGFloat = 220

@@ -8,7 +8,7 @@ import os
 final class MonitorModel {
     enum Permission { case unknown, granted, denied }
 
-    static let logger = Logger(subsystem: "MicMon", category: "Monitor")
+    static let logger = Logger(subsystem: "MicMonitor", category: "Monitor")
     static let historyRange = 1...60
     static let defaultHistorySeconds = 10
 

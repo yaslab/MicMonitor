@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct MicMonApp: App {
+struct MicMonitorApp: App {
     static let mainWindowID = "main"
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
@@ -16,7 +16,7 @@ struct MicMonApp: App {
     }
 
     var body: some Scene {
-        Window("MicMon", id: Self.mainWindowID) {
+        Window("MicMonitor", id: Self.mainWindowID) {
             ContentView()
                 .environment(model)
                 .environment(display)
@@ -46,7 +46,7 @@ private struct DisplayModeCommands: Commands {
 
     var body: some Commands {
         // メインウィンドウがまだ作られていないときに、カードから開けるようにする
-        let _ = display.setOpenMainWindow { openWindow(id: MicMonApp.mainWindowID) }
+        let _ = display.setOpenMainWindow { openWindow(id: MicMonitorApp.mainWindowID) }
         // カードから設定を開けるようにする（カードのビューの中から openSettings を呼んでも開かない）
         let _ = display.setOpenSettings { openSettings() }
         CommandGroup(after: .toolbar) {

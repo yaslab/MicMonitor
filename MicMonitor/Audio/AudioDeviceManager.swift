@@ -12,7 +12,7 @@ final class AudioDeviceManager {
     /// デバイス一覧または既定デバイスが変わったときに呼ばれる。
     @ObservationIgnored var onChange: (() -> Void)?
 
-    private static let logger = Logger(subsystem: "MicMon", category: "Devices")
+    private static let logger = Logger(subsystem: "MicMonitor", category: "Devices")
 
     var defaultInputDevice: AudioInputDevice? {
         guard let defaultInputDeviceID else { return nil }

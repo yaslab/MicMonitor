@@ -28,7 +28,7 @@ final class InputVolumeController {
 
     /// ミュート前の音量がわからないときに戻す音量。
     private static let defaultRestoreVolume: Float = 0.5
-    private static let logger = Logger(subsystem: "MicMon", category: "InputVolume")
+    private static let logger = Logger(subsystem: "MicMonitor", category: "InputVolume")
 
     /// 対象デバイスを切り替える。同じデバイスなら何もしない。
     func attach(to deviceID: AudioDeviceID?) {

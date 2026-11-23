@@ -65,7 +65,7 @@ private struct PermissionDeniedView: View {
                 .accessibilityHidden(true)
             Text("マイクへのアクセスが許可されていません")
                 .font(.system(size: 17, weight: .semibold))
-            Text("入力レベルを表示するには、マイクへのアクセスが必要です。システム設定の「プライバシーとセキュリティ」›「マイク」で MicMon をオンにしてください。")
+            Text("入力レベルを表示するには、マイクへのアクセスが必要です。システム設定の「プライバシーとセキュリティ」›「マイク」で MicMonitor をオンにしてください。")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
