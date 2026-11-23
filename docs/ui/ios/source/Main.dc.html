@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MicMonitor iPhone・iPad 画面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:#64D2FF}a:hover{color:#9BE3FF}
+</style>
+</helmet>
+<div style="width: {{s.w}}; height: {{s.h}}; box-sizing: border-box; display: flex; flex-direction: column; background: {{t.bg}}; color: {{t.text}}; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 17px; overflow: hidden">
+
+  <sc-if value="{{largeHeader}}" hint-placeholder-val="{{ true }}">
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 6px; padding: 58px 16px 12px">
+      <div style="display: flex; justify-content: flex-end; align-items: center; gap: 10px">
+        <button onClick="{{togglePause}}" style="height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 18px 0 16px; border-radius: 22px; border: 1px solid {{pauseBorder}}; background: {{pauseBg}}; color: {{pauseFg}}; font-size: 15px; font-weight: 600; white-space: nowrap">
+          <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+            <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect></svg>
+          </sc-if>
+          <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+            <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6 L10.4 6 L3 10.4 Z" fill="currentColor"></path></svg>
+          </sc-if>
+          <span>{{pauseLabel}}</span>
+        </button>
+        <button aria-label="設定" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 22px; border: 1px solid {{t.glassBorder}}; background: {{t.glass}}; color: {{t.text}}">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.8"></circle><path d="M10 1.8 V4 M10 16 V18.2 M1.8 10 H4 M16 10 H18.2 M4.2 4.2 L5.8 5.8 M14.2 14.2 L15.8 15.8 M4.2 15.8 L5.8 14.2 M14.2 5.8 L15.8 4.2"></path><circle cx="10" cy="10" r="5.6"></circle></svg>
+        </button>
+      </div>
+      <h1 style="margin: 0; font-size: 34px; font-weight: 700; letter-spacing: 0.01em">MicMonitor</h1>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{inlineHeader}}" hint-placeholder-val="{{ false }}">
+    <div style="flex-shrink: 0; height: 64px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: {{s.barPad}}; position: relative">
+      <div style="position: absolute; left: 0; right: 0; text-align: center; font-size: 17px; font-weight: 600; pointer-events: none">MicMonitor</div>
+      <span style="flex: 1"></span>
+      <button onClick="{{togglePause}}" style="position: relative; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 18px 0 16px; border-radius: 22px; border: 1px solid {{pauseBorder}}; background: {{pauseBg}}; color: {{pauseFg}}; font-size: 15px; font-weight: 600; white-space: nowrap">
+        <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+          <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect></svg>
+        </sc-if>
+        <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+          <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6 L10.4 6 L3 10.4 Z" fill="currentColor"></path></svg>
+        </sc-if>
+        <span>{{pauseLabel}}</span>
+      </button>
+      <button aria-label="設定" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 22px; border: 1px solid {{t.glassBorder}}; background: {{t.glass}}; color: {{t.text}}">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="2.8"></circle><path d="M10 1.8 V4 M10 16 V18.2 M1.8 10 H4 M16 10 H18.2 M4.2 4.2 L5.8 5.8 M14.2 14.2 L15.8 15.8 M4.2 15.8 L5.8 14.2 M14.2 5.8 L15.8 4.2"></path><circle cx="10" cy="10" r="5.6"></circle></svg>
+      </button>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{denied}}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px {{s.padX}} 48px">
+      <div style="max-width: 480px; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center; background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 20px; padding: 36px 24px">
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: {{t.clipOffBg}}; display: flex; align-items: center; justify-content: center; color: {{t.danger}}">
+          <svg width="34" height="34" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5 a5 5 0 0 0 10 0 M8 12.5 V14.5 M2.5 2 L13.5 14"></path></svg>
+        </div>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600">マイクへのアクセスが許可されていません</h2>
+        <p style="margin: 0; font-size: 15px; line-height: 1.6; color: {{t.text2}}; text-wrap: pretty">入力レベルを表示するには、マイクへのアクセスが必要です。「設定」アプリの「MicMonitor」で「マイク」をオンにしてください。</p>
+        <button style="height: 50px; padding: 0 28px; border: none; border-radius: 25px; background: #0A64D6; color: #FFFFFF; font-size: 17px; font-weight: 600">設定を開く</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{granted}}" hint-placeholder-val="{{ true }}">
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: {{s.dir}}; align-items: flex-start; gap: {{s.gap}}; padding: 4px {{s.padX}} 24px">
+
+      <div style="width: {{s.leftW}}; flex-shrink: 0; display: flex; flex-direction: column; gap: {{s.gap}}">
+
+        <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; overflow: hidden">
+          <button style="width: 100%; min-height: 56px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border: none; background: transparent; text-align: left">
+            <span style="font-size: 17px; flex-shrink: 0">入力</span>
+            <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 2px">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 17px; color: {{t.accent}}; max-width: 100%">
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{deviceName}}</span>
+                <svg width="12" height="14" viewBox="0 0 12 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0"><path d="M2.5 6 L6 2.5 L9.5 6 M2.5 10 L6 13.5 L9.5 10"></path></svg>
+              </span>
+              <span style="font-size: 15px; color: {{t.text2}}; font-variant-numeric: tabular-nums">{{formatText}}</span>
+            </span>
+          </button>
+          <div style="height: 1px; margin-left: 16px; background: {{t.sep}}"></div>
+          <div style="min-height: 56px; display: flex; align-items: center; gap: 8px; padding: 6px 16px 6px 6px">
+            <button aria-label="入力をミュート" style="width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: none; background: transparent; color: {{t.textSoft}}">
+              <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5 a5 5 0 0 0 10 0 M8 12.5 V14.5"></path></svg>
+            </button>
+            <div style="flex: 1; position: relative; height: 44px">
+              <div style="position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 3px; background: {{t.track}}"></div>
+              <div style="position: absolute; left: 0; top: 19px; height: 6px; width: 62%; border-radius: 3px; background: {{t.accent}}"></div>
+              <sc-for list="{{volTicks}}" as="v" hint-placeholder-count="7">
+                <div style="position: absolute; top: 31px; left: {{v.left}}; width: 1px; height: 5px; background: {{t.tick}}"></div>
+              </sc-for>
+              <div style="position: absolute; left: 62%; top: 9px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: {{t.knob}}; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.25)"></div>
+              <input type="range" min="0" max="100" value="62" aria-label="入力音量" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0">
+            </div>
+            <span style="width: 48px; flex-shrink: 0; text-align: right; font-size: 15px; font-variant-numeric: tabular-nums; color: {{t.textSoft}}">62%</span>
+          </div>
+        </div>
+
+        <sc-if value="{{twoCol}}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; overflow: hidden">
+              <div style="min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 4px 16px">
+                <span style="flex: 1; font-size: 17px">モニター再生</span>
+                <button onClick="{{toggleMonitor}}" aria-pressed="{{monitorPressed}}" aria-label="モニター再生" style="width: 51px; height: 31px; flex-shrink: 0; padding: 0; border: none; border-radius: 16px; position: relative; background: {{switchBg}}; opacity: {{switchOpacity}}">
+                  <span style="position: absolute; top: 2px; left: {{knobLeft}}; width: 27px; height: 27px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.25)"></span>
+                </button>
+              </div>
+              <div style="height: 1px; margin-left: 16px; background: {{t.sep}}"></div>
+              <div style="min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 4px 16px; opacity: {{monVolOpacity}}">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; color: {{t.text2}}"><path d="M2.5 6 H5 L8 3.5 V12.5 L5 10 H2.5 Z"></path><path d="M10.5 5.5 a3.5 3.5 0 0 1 0 5 M12.5 3.5 a6 6 0 0 1 0 9"></path></svg>
+                <div style="flex: 1; position: relative; height: 44px">
+                  <div style="position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 3px; background: {{t.track}}"></div>
+                  <div style="position: absolute; left: 0; top: 19px; height: 6px; width: 80%; border-radius: 3px; background: {{monVolFill}}"></div>
+                  <div style="position: absolute; left: 80%; top: 9px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: {{t.knob}}; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.25)"></div>
+                  <input type="range" min="0" max="100" value="80" aria-label="モニター再生の音量" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0">
+                </div>
+                <span style="width: 48px; flex-shrink: 0; text-align: right; font-size: 15px; font-variant-numeric: tabular-nums; color: {{t.textSoft}}">80%</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 0 16px; font-size: 13px; line-height: 1.45; color: {{t.text2}}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M2.5 10 V8 a5.5 5.5 0 0 1 11 0 V10"></path><rect x="2" y="9.5" width="3" height="4.5" rx="1"></rect><rect x="11" y="9.5" width="3" height="4.5" rx="1"></rect></svg>
+              <span>{{monitorNote}}</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div style="flex: 1; min-width: 0; width: {{s.rightW}}; display: flex; flex-direction: column; gap: {{s.gap}}">
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px">
+            <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}">レベル</span>
+            <span style="font-size: 12px; color: {{t.text3}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Peak（淡）/ RMS（濃）· dBFS</span>
+          </div>
+          <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 8px">
+            <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+              <sc-for list="{{meters}}" as="m" hint-placeholder-count="2">
+                <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 52px 78px; gap: 10px; align-items: center; min-height: 28px">
+                  <span style="font-size: 13px; color: {{t.text2}}; font-variant-numeric: tabular-nums">{{m.label}}</span>
+                  <div style="position: relative; height: 14px; border-radius: 4px; background: {{t.clipOffBg}}; overflow: hidden">
+                    <div style="position: absolute; inset: 0; opacity: 0.38; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.peakClip}}"></div>
+                    <div style="position: absolute; inset: 0; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.rmsClip}}"></div>
+                    <div style="position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; left: {{m.holdLeft}}; background: {{m.holdColor}}"></div>
+                  </div>
+                  <button onClick="{{m.clear}}" aria-label="チャンネル {{m.label}} のクリップ表示を消す" style="height: 28px; padding: 0; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; background: {{m.clipBg}}; color: {{m.clipFg}}">CLIP</button>
+                  <span style="text-align: right; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 15px; font-variant-numeric: tabular-nums; color: {{t.text}}; white-space: nowrap">{{m.holdText}}<span style="color: {{t.text3}}; font-size: 12px"> dB</span></span>
+                </div>
+              </sc-for>
+              <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 52px 78px; gap: 10px">
+                <span></span>
+                <div style="position: relative; height: 16px">
+                  <sc-for list="{{meterTicks}}" as="k" hint-placeholder-count="6">
+                    <span style="position: absolute; top: 0; left: {{k.left}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums">{{k.label}}</span>
+                  </sc-for>
+                </div>
+                <span></span>
+                <span></span>
+              </div>
+            </sc-if>
+            <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+              <div style="height: 64px; display: flex; align-items: center; justify-content: center; gap: 8px; color: {{t.text2}}; font-size: 15px">
+                <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect></svg>
+                <span>計測を停止中</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px">
+            <div style="display: flex; align-items: baseline; gap: 8px; flex-shrink: 0">
+              <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}">波形</span>
+              <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 12px; color: {{t.warn}}">停止時点のまま表示</span>
+              </sc-if>
+            </div>
+            <span style="font-size: 12px; color: {{t.text3}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">直近 10 秒 · 各側 -60〜0 dBFS</span>
+          </div>
+          <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 6px">
+            <sc-for list="{{waves}}" as="w" hint-placeholder-count="2">
+              <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center">
+                <span style="font-size: 13px; color: {{t.text2}}">{{w.label}}</span>
+                <div style="position: relative; height: {{s.waveH}}; background: {{t.plot}}; border-radius: 6px; overflow: hidden">
+                  <div style="position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: {{t.line}}"></div>
+                  <svg viewBox="0 0 320 100" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%">
+                    <path d="{{w.peak}}" fill="{{t.accent}}" fill-opacity="0.4"></path>
+                    <path d="{{w.rms}}" fill="{{t.rms}}"></path>
+                  </svg>
+                </div>
+              </div>
+            </sc-for>
+            <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px">
+              <span></span>
+              <div style="position: relative; height: 16px">
+                <sc-for list="{{timeTicks}}" as="k" hint-placeholder-count="6">
+                  <span style="position: absolute; top: 0; left: {{k.left}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums; white-space: nowrap">{{k.label}}</span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px">
+            <div style="display: flex; align-items: baseline; gap: 8px; flex-shrink: 0">
+              <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}">スペクトログラム</span>
+              <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 12px; color: {{t.warn}}">停止時点のまま表示</span>
+              </sc-if>
+            </div>
+            <span style="font-size: 12px; color: {{t.text3}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{cmLabel}} · 全チャンネル平均</span>
+          </div>
+          <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 6px">
+            <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px">
+              <div style="position: relative; height: {{s.sgH}}">
+                <sc-for list="{{sgFreqTicks}}" as="k" hint-placeholder-count="3">
+                  <span style="position: absolute; right: 0; top: {{k.top}}; transform: translateY(-50%); font-size: 11px; color: {{t.text3}}">{{k.label}}</span>
+                </sc-for>
+              </div>
+              <div style="height: {{s.sgH}}; display: flex; background: {{t.plot}}; border-radius: 6px; overflow: hidden">
+                <sc-for list="{{specCols}}" as="c" hint-placeholder-count="40">
+                  <div style="flex: 1 1 0; min-width: 0; background: {{c.bg}}"></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px">
+              <span></span>
+              <div style="position: relative; height: 16px">
+                <sc-for list="{{timeTicks}}" as="k" hint-placeholder-count="6">
+                  <span style="position: absolute; top: 0; left: {{k.left}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums; white-space: nowrap">{{k.label}}</span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 4px">
+            <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}; flex-shrink: 0">スペクトル</span>
+            <span style="font-size: 12px; color: {{t.text3}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{spCaption}}</span>
+          </div>
+          <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; padding: 12px 16px 8px; display: flex; flex-direction: column; gap: 6px">
+            <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
+              <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px">
+                <div style="position: relative; height: {{s.spH}}">
+                  <sc-for list="{{dbTicks}}" as="k" hint-placeholder-count="6">
+                    <span style="position: absolute; right: 0; top: {{k.top}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums">{{k.label}}</span>
+                  </sc-for>
+                </div>
+                <div style="position: relative; height: {{s.spH}}; background: {{t.plot}}; border-radius: 6px; overflow: hidden">
+                  <sc-for list="{{dbTicks}}" as="k" hint-placeholder-count="6">
+                    <div style="position: absolute; left: 0; right: 0; top: {{k.top}}; height: 1px; background: {{t.grid}}"></div>
+                  </sc-for>
+                  <sc-for list="{{freqGrid}}" as="g" hint-placeholder-count="3">
+                    <div style="position: absolute; top: 0; bottom: 0; left: {{g.left}}; width: 1px; background: {{t.grid}}"></div>
+                  </sc-for>
+                  <svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%">
+                    <path d="{{spArea}}" fill="{{t.accent}}" fill-opacity="0.45"></path>
+                    <path d="{{spPeak}}" fill="none" stroke="{{t.peakLine}}" stroke-opacity="0.85" stroke-width="1.5" vector-effect="non-scaling-stroke"></path>
+                  </svg>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px">
+                <span></span>
+                <div style="position: relative; height: 16px">
+                  <sc-for list="{{freqTicks}}" as="k" hint-placeholder-count="6">
+                    <span style="position: absolute; top: 0; left: {{k.left}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums; white-space: nowrap">{{k.label}}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+              <div style="height: {{s.spPausedH}}; display: flex; align-items: center; justify-content: center; gap: 8px; color: {{t.text2}}; font-size: 15px">
+                <svg width="14" height="14" viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect><rect x="7" y="1.5" width="3" height="9" rx="0.8" fill="currentColor"></rect></svg>
+                <span>計測を停止中</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+
+        <sc-if value="{{oneCol}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; overflow: hidden">
+              <div style="min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 4px 16px">
+                <span style="flex: 1; font-size: 17px">モニター再生</span>
+                <button onClick="{{toggleMonitor}}" aria-pressed="{{monitorPressed}}" aria-label="モニター再生" style="width: 51px; height: 31px; flex-shrink: 0; padding: 0; border: none; border-radius: 16px; position: relative; background: {{switchBg}}; opacity: {{switchOpacity}}">
+                  <span style="position: absolute; top: 2px; left: {{knobLeft}}; width: 27px; height: 27px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.25)"></span>
+                </button>
+              </div>
+              <div style="height: 1px; margin-left: 16px; background: {{t.sep}}"></div>
+              <div style="min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 4px 16px; opacity: {{monVolOpacity}}">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; color: {{t.text2}}"><path d="M2.5 6 H5 L8 3.5 V12.5 L5 10 H2.5 Z"></path><path d="M10.5 5.5 a3.5 3.5 0 0 1 0 5 M12.5 3.5 a6 6 0 0 1 0 9"></path></svg>
+                <div style="flex: 1; position: relative; height: 44px">
+                  <div style="position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 3px; background: {{t.track}}"></div>
+                  <div style="position: absolute; left: 0; top: 19px; height: 6px; width: 80%; border-radius: 3px; background: {{monVolFill}}"></div>
+                  <div style="position: absolute; left: 80%; top: 9px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: {{t.knob}}; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.25)"></div>
+                  <input type="range" min="0" max="100" value="80" aria-label="モニター再生の音量" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0">
+                </div>
+                <span style="width: 48px; flex-shrink: 0; text-align: right; font-size: 15px; font-variant-numeric: tabular-nums; color: {{t.textSoft}}">80%</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 8px; padding: 0 16px; font-size: 13px; line-height: 1.45; color: {{t.text2}}">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 2px"><path d="M2.5 10 V8 a5.5 5.5 0 0 1 11 0 V10"></path><rect x="2" y="9.5" width="3" height="4.5" rx="1"></rect><rect x="11" y="9.5" width="3" height="4.5" rx="1"></rect></svg>
+              <span>{{monitorNote}}</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"layout":{"editor":"enum","default":"phone","options":["phone","phoneLandscape","tablet","tabletLandscape"],"section":"レイアウト"},"state":{"editor":"enum","default":"running","options":["running","paused","denied"],"section":"状態"},"monitorOn":{"editor":"boolean","default":false,"section":"状態"},"theme":{"editor":"enum","default":"dark","options":["dark","light"],"section":"表示"},"colormap":{"editor":"enum","default":"viridis","options":["mono","viridis","magma","inferno","plasma"],"section":"表示"},"$preview":{"width":402,"height":1320}}'>
+var MAPS = {
+  viridis: ['#440154','#482878','#3E4A89','#31688E','#26828E','#1F9E89','#35B779','#6DCD59','#B4DE2C','#FDE725'],
+  magma: ['#000004','#180F3D','#440F76','#721F81','#9E2F7F','#CD4071','#F1605D','#FD9668','#FECA8D','#FCFDBF'],
+  inferno: ['#000004','#1B0C41','#4A0C6B','#781C6D','#A52C60','#CF4446','#ED6925','#FB9B06','#F7D13D','#FCFFA4'],
+  plasma: ['#0D0887','#46039F','#7201A8','#9C179E','#BD3786','#D8576B','#ED7953','#FB9F3A','#FDCA26','#F0F921']
+};
+var THEMES = {
+  dark: { bg: '#000000', panel: '#161618', line: '#2A2A2E', sep: '#38383A', plot: '#0E0E10', grid: '#1F1F23', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', text3: '#8E8E93', track: '#3A3A3C', tick: '#636366', knob: '#FFFFFF', glass: 'rgba(120,120,128,0.24)', glassBorder: 'rgba(255,255,255,0.10)', switchOff: '#39393D', accent: '#0A84FF', accentRgb: '10,132,255', rms: '#3D9BFF', peakLine: '#E5E5EA', warn: '#FFD60A', danger: '#FF6961', mG: '#30D158', mY: '#FFD60A', mR: '#FF453A', clipOffBg: '#2C2C2E', clipOffFg: '#98989D' },
+  light: { bg: '#F2F2F7', panel: '#FFFFFF', line: '#DADADF', sep: '#E5E5EA', plot: '#F5F5F7', grid: '#E6E6EB', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#4F4F54', text3: '#636366', track: '#D1D1D6', tick: '#AEAEB2', knob: '#FFFFFF', glass: 'rgba(255,255,255,0.78)', glassBorder: 'rgba(0,0,0,0.08)', switchOff: '#E3E3E8', accent: '#007AFF', accentRgb: '0,122,255', rms: '#0060DF', peakLine: '#1D1D1F', warn: '#7A5200', danger: '#D70015', mG: '#34C759', mY: '#FFCC00', mR: '#FF3B30', clipOffBg: '#E9E9EB', clipOffFg: '#636366' }
+};
+var LAYOUTS = {
+  phone: { w: '402px', h: '1320px', deniedH: '874px', padX: '16px', barPad: '0 16px', gap: '20px', dir: 'column', leftW: '100%', rightW: '100%', two: false, large: true, waveH: '64px', sgH: '120px', spH: '140px', spPausedH: '160px', cols: 150, narrow: true },
+  phoneLandscape: { w: '874px', h: '760px', deniedH: '402px', padX: '62px', barPad: '0 62px', gap: '16px', dir: 'row', leftW: '300px', rightW: 'auto', two: true, large: false, waveH: '56px', sgH: '96px', spH: '112px', spPausedH: '132px', cols: 140, narrow: true },
+  tablet: { w: '820px', h: '1180px', deniedH: '1180px', padX: '24px', barPad: '0 24px', gap: '24px', dir: 'column', leftW: '100%', rightW: '100%', two: false, large: false, waveH: '72px', sgH: '150px', spH: '170px', spPausedH: '190px', cols: 160, narrow: false },
+  tabletLandscape: { w: '1180px', h: '820px', deniedH: '820px', padX: '24px', barPad: '0 24px', gap: '24px', dir: 'row', leftW: '360px', rightW: 'auto', two: true, large: false, waveH: '64px', sgH: '132px', spH: '150px', spPausedH: '170px', cols: 160, narrow: false }
+};
+var MONO_RGB = '10,132,255';
+var CM_LABEL = { mono: '単色', viridis: 'viridis', magma: 'magma', inferno: 'inferno', plasma: 'plasma' };
+function rng(seed) { var s = seed >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+function h2r(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function cmap(name, t) {
+  t = Math.max(0, Math.min(1, t));
+  if (name === 'mono') return 'rgba(' + MONO_RGB + ',' + t.toFixed(3) + ')';
+  var st = MAPS[name] || MAPS.viridis;
+  var x = t * (st.length - 1); var i = Math.min(st.length - 2, Math.floor(x)); var f = x - i;
+  var a = h2r(st[i]), b = h2r(st[i + 1]);
+  return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ')';
+}
+function makeBursts(seed) {
+  var r = rng(seed); var out = []; var u = 0.01;
+  while (u < 0.97) {
+    if (u > 0.5 && u < 0.62) { u = 0.62; continue; }
+    var w = 0.004 + r() * 0.012;
+    out.push({ c: u, w: w, a: Math.pow(10, (-5 - r() * 20) / 20) });
+    u += w * 1.7 + r() * 0.02;
+  }
+  out.push({ c: 0.905, w: 0.007, a: 0.85 });
+  return out;
+}
+var BURSTS = makeBursts(7);
+function envLin(u) { var s = 0.0012; for (var i = 0; i < BURSTS.length; i++) { var b = BURSTS[i]; var d = (u - b.c) / b.w; if (d > -4 && d < 4) s += b.a * Math.exp(-d * d); } return Math.min(1, s); }
+function db(x) { return 20 * Math.log10(Math.max(x, 1e-6)); }
+function nrm(x) { return Math.max(0, Math.min(1, (db(x) + 60) / 60)); }
+function wavePaths(ch, N) {
+  var r = rng(100 + ch); var top = [], bot = [], rt = [], rb = [];
+  for (var i = 0; i < N; i++) {
+    var u = (i + 0.5) / N; var e = envLin(u) * (ch === 1 ? 1.12 : 1);
+    var pk = e * (0.75 + 0.25 * r());
+    var mx = pk * (0.85 + 0.15 * r()); var mn = pk * (0.8 + 0.2 * r());
+    if (ch === 1 && u > 0.898 && u < 0.912) mx = 1;
+    var rm = pk * 0.36;
+    var tn = nrm(mx), bn = nrm(mn), rn = nrm(rm);
+    top.push(i + ' ' + (50 - tn * 50).toFixed(1)); bot.push(i + ' ' + (50 + bn * 50).toFixed(1));
+    rt.push(i + ' ' + (50 - Math.min(rn, tn) * 50).toFixed(1)); rb.push(i + ' ' + (50 + Math.min(rn, bn) * 50).toFixed(1));
+  }
+  return { peak: 'M' + top.join(' L') + ' L' + bot.reverse().join(' L') + ' Z', rms: 'M' + rt.join(' L') + ' L' + rb.reverse().join(' L') + ' Z' };
+}
+function shapeAt(f, u) {
+  var s = 0;
+  if (f > 400) s -= 7 * Math.log2(f / 400);
+  if (f < 150) s -= 14 * Math.log2(150 / f);
+  var f1 = 520 + 260 * Math.sin(u * 40), f2 = 1600 + 500 * Math.cos(u * 31);
+  s += 10 * Math.exp(-Math.pow(Math.log2(f / f1) / 0.35, 2)) + 7 * Math.exp(-Math.pow(Math.log2(f / f2) / 0.4, 2));
+  return s;
+}
+function specCols(name, M, B) {
+  var r = rng(42); var cols = [];
+  for (var i = 0; i < M; i++) {
+    var u = (i + 0.5) / M; var e = db(envLin(u)); var stops = [];
+    for (var b = 0; b < B; b++) {
+      var f = 20 * Math.pow(2, (b + 0.5) / B * 10);
+      var lvl = Math.max(-95 + r() * 7, e - 26 + shapeAt(f, u) + (r() - 0.5) * 6);
+      stops.push(cmap(name, (lvl + 100) / 100) + ' ' + ((b + 0.5) / B * 100).toFixed(1) + '%');
+    }
+    cols.push({ bg: 'linear-gradient(to top,' + stops.join(',') + ')' });
+  }
+  return cols;
+}
+function spectrum() {
+  var r = rng(9); var B = 120; var area = [], peak = [];
+  for (var k = 0; k < B; k++) {
+    var f = 20 * Math.pow(2, k / 12); var x = (k / (B - 1) * 1000).toFixed(1);
+    var harm = f < 5000 ? 7 * Math.pow(Math.max(0, Math.cos(2 * Math.PI * f / 190)), 6) - 3 : 0;
+    var cur = Math.max(-96 + r() * 4, -34 + shapeAt(f, 0.37) + harm + (r() - 0.5) * 4);
+    var pk = Math.min(-1, cur + 4 + r() * 6);
+    area.push(x + ' ' + Math.min(100, -cur).toFixed(1)); peak.push(x + ' ' + Math.min(100, -pk).toFixed(1));
+  }
+  return { area: 'M0 100 L' + area.join(' L') + ' L1000 100 Z', peak: 'M' + peak.join(' L') };
+}
+function xf(i, n) { return i === 0 ? 'none' : (i === n - 1 ? 'translateX(-100%)' : 'translateX(-50%)'); }
+function logX(f) { return (Math.log2(f / 20) / 10 * 100).toFixed(2) + '%'; }
+function zone(d, t) { return d >= -6 ? t.mR : (d >= -18 ? t.mY : t.mG); }
+function pct(d) { return Math.max(0, Math.min(100, (d + 60) / 60 * 100)); }
+
+class Component extends DCLogic {
+  renderVals() {
+    var self = this; var st = this.state || {}; var p = this.props;
+    var lk = LAYOUTS[p.layout] ? p.layout : 'phone'; var L = LAYOUTS[lk];
+    var phone = lk === 'phone' || lk === 'phoneLandscape';
+    var state = st.state || p.state || 'running';
+    var denied = state === 'denied'; var paused = state === 'paused';
+    var monitorOn = st.monitorOn !== undefined ? st.monitorOn : !!p.monitorOn;
+    if (paused) monitorOn = false;
+    var cm = p.colormap ?? 'viridis';
+    var th = p.theme === 'light' ? 'light' : 'dark'; var t = THEMES[th];
+    var key = cm + th + lk;
+    if (!this._c || this._c.key !== key) {
+      MONO_RGB = t.accentRgb;
+      var sp = spectrum();
+      var chs = phone ? [0] : [0, 1];
+      this._c = { key: key, waves: chs.map(function (c) { var w = wavePaths(c, 320); return { label: String(c + 1), peak: w.peak, rms: w.rms }; }), cols: specCols(cm, L.cols, 48), spArea: sp.area, spPeak: sp.peak };
+    }
+    var cleared = st.cleared || {};
+    var raw = phone
+      ? [{ label: '1', rms: -24.1, peak: -12.6, hold: -9.8, clip: false }]
+      : [{ label: '1', rms: -22.5, peak: -11.2, hold: -8.4, clip: false }, { label: '2', rms: -19.8, peak: -4.1, hold: -0.1, clip: true }];
+    var meters = raw.map(function (m, i) {
+      var lit = m.clip && !cleared[i];
+      return {
+        label: m.label,
+        peakClip: 'inset(0 ' + (100 - pct(m.peak)).toFixed(2) + '% 0 0)',
+        rmsClip: 'inset(0 ' + (100 - pct(m.rms)).toFixed(2) + '% 0 0)',
+        holdLeft: pct(m.hold).toFixed(2) + '%', holdColor: zone(m.hold, t),
+        holdText: m.hold.toFixed(1),
+        clipBg: lit ? '#D70015' : t.clipOffBg, clipFg: lit ? '#FFFFFF' : t.clipOffFg,
+        clear: function () { var c = Object.assign({}, (self.state || {}).cleared); c[i] = true; self.setState({ cleared: c }); }
+      };
+    });
+    var mt = L.narrow ? [-60, -48, -36, -24, -12, 0] : [-60, -48, -36, -24, -18, -12, -6, -3, 0];
+    var meterTicks = mt.map(function (d, i) { return { label: String(d), left: pct(d).toFixed(2) + '%', tf: xf(i, mt.length) }; });
+    var tl = ['-10 s', '-8 s', '-6 s', '-4 s', '-2 s', 'now'];
+    var timeTicks = tl.map(function (l, i) { return { label: l, left: (i * 20) + '%', tf: xf(i, tl.length) }; });
+    var fv = L.narrow ? [20, 100, 500, 2000, 10000, 20000] : [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    var freqTicks = fv.map(function (f, i) { return { label: f >= 1000 ? (f / 1000) + 'k' : String(f), left: logX(f), tf: xf(i, fv.length) }; });
+    var freqGrid = [100, 1000, 10000].map(function (f) { return { left: logX(f) }; });
+    var dbv = [0, -20, -40, -60, -80, -100];
+    var dbTicks = dbv.map(function (d, i) { return { label: String(d), top: (-d) + '%', tf: i === 0 ? 'none' : (i === dbv.length - 1 ? 'translateY(-100%)' : 'translateY(-50%)') }; });
+    var sgFreqTicks = [[10000, '10k'], [1000, '1k'], [100, '100']].map(function (a) { return { label: a[1], top: (100 - Math.log2(a[0] / 20) / 10 * 100).toFixed(1) + '%' }; });
+    var volTicks = [0, 17, 33, 50, 67, 83, 100].map(function (v) { return { left: v + '%' }; });
+    var s = Object.assign({}, L, { h: denied ? L.deniedH : L.h });
+    return {
+      s: s, t: t,
+      largeHeader: L.large, inlineHeader: !L.large,
+      twoCol: L.two, oneCol: !L.two,
+      paused: paused, running: !paused, denied: denied, granted: !denied,
+      deviceName: phone ? 'iPhone のマイク' : 'Scarlett 2i2 USB',
+      formatText: phone ? 'システム既定 · 48 kHz · 1 ch' : '48 kHz · 2 ch',
+      pauseLabel: paused ? '計測を開始' : '計測を停止',
+      pauseBg: paused ? '#0A64D6' : t.glass, pauseBorder: paused ? '#0A64D6' : t.glassBorder, pauseFg: paused ? '#FFFFFF' : t.text,
+      togglePause: function () { self.setState({ state: paused ? 'running' : 'paused' }); },
+      toggleMonitor: function () { if (!paused) self.setState({ monitorOn: !monitorOn }); },
+      monitorPressed: monitorOn ? 'true' : 'false',
+      switchBg: monitorOn ? '#34C759' : t.switchOff, knobLeft: monitorOn ? '22px' : '2px',
+      switchOpacity: paused ? '0.5' : '1',
+      monVolOpacity: monitorOn ? '1' : '0.45', monVolFill: monitorOn ? t.accent : t.text3,
+      monitorNote: paused ? '計測を停止しているため、モニター再生も止まっています' : 'ハウリングを防ぐため、ヘッドホンで聴いてください · 出力: 現在の出力先',
+      spCaption: L.narrow ? '塗り＝現在値 / 線＝ピークホールド' : '1/12 オクターブ · 塗り＝現在値 / 線＝ピークホールド',
+      meters: meters, meterTicks: meterTicks, timeTicks: timeTicks, freqTicks: freqTicks, freqGrid: freqGrid,
+      dbTicks: dbTicks, sgFreqTicks: sgFreqTicks, volTicks: volTicks,
+      waves: this._c.waves, specCols: this._c.cols, spArea: this._c.spArea, spPeak: this._c.spPeak,
+      cmLabel: CM_LABEL[cm] || cm
+    };
+  }
+}
+</script>
+</body>
+</html>

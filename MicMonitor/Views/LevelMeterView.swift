@@ -6,8 +6,9 @@ struct LevelMeterSection: View {
     let compact: Bool
     let onResetClip: () -> Void
 
-    private static let clipWidth: CGFloat = 44
-    private static let valueWidth: CGFloat = 70
+    @Environment(\.monitorMetrics) private var metrics
+    /// 軸やチャンネル番号の列の幅に掛ける Dynamic Type の倍率（macOS では常に 1）。
+    @ScaledMetric(relativeTo: .caption2) private var scale: CGFloat = 1
 
     var body: some View {
         if compact {
@@ -26,36 +27,41 @@ struct LevelMeterSection: View {
                 }
             }
         } else {
+            let gutter = metrics.gutterWidth * scale
+            let clipWidth = metrics.clipWidth * scale
+            let valueWidth = metrics.valueWidth * scale
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(readings.indices, id: \.self) { index in
                     let reading = readings[index]
-                    HStack(spacing: MonitorLayout.gutterSpacing) {
+                    HStack(spacing: metrics.gutterSpacing) {
                         Text(ChannelLabel.label(index: index, count: readings.count))
-                            .font(.system(size: 11).monospacedDigit())
+                            .font(AppFont.channelLabel)
                             .foregroundStyle(.secondary)
-                            .frame(width: MonitorLayout.gutterWidth, alignment: .leading)
-                        MeterBar(reading: reading, track: .meterTrack, cornerRadius: 3)
-                            .frame(height: 12)
+                            .frame(width: gutter, alignment: .leading)
+                            .axisTypeSize()
+                        MeterBar(reading: reading, track: .meterTrack, cornerRadius: metrics.meterBarHeight / 4)
+                            .frame(height: metrics.meterBarHeight)
                         ClipIndicator(isOn: reading.clipped, onReset: onResetClip)
-                            .frame(width: Self.clipWidth)
+                            .frame(width: clipWidth, height: metrics.clipHeight * scale)
+                            .axisTypeSize()
                         // 数字はピークホールド（直近のピークを 1.5 秒保持してから下げる）
                         HStack(alignment: .firstTextBaseline, spacing: 0) {
                             Text(Decibel.format(reading.holdDB))
-                                .font(.system(size: 12, design: .monospaced))
+                                .font(AppFont.meterValue)
                             Text(" dB")
-                                .font(.system(size: 10))
+                                .font(AppFont.meterUnit)
                                 .foregroundStyle(.secondary)
                         }
-                        .frame(width: Self.valueWidth, alignment: .trailing)
+                        .lineLimit(1)
+                        .frame(width: valueWidth, alignment: .trailing)
+                        .axisTypeSize()
                     }
-                    .frame(height: 18)
+                    .frame(minHeight: metrics.meterRowHeight)
                 }
-                HStack(spacing: MonitorLayout.gutterSpacing) {
-                    Color.clear.frame(width: MonitorLayout.gutterWidth, height: 1)
+                HStack(spacing: metrics.gutterSpacing) {
+                    Color.clear.frame(width: gutter, height: 1)
                     MeterScale()
-                        .frame(height: 14)
-                    Color.clear.frame(width: Self.clipWidth + MonitorLayout.gutterSpacing + Self.valueWidth,
-                                      height: 1)
+                    Color.clear.frame(width: clipWidth + metrics.gutterSpacing + valueWidth, height: 1)
                 }
             }
         }
@@ -72,12 +78,13 @@ private struct ClipIndicator: View {
 
     var body: some View {
         Text("CLIP")
-            .font(.system(size: 10, weight: .bold))
+            .font(AppFont.clip)
             .kerning(0.6)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
             .foregroundStyle(isOn ? Color.white : Color.clipOffText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 16)
-            .background(isOn ? Self.litBackground : Color.meterTrack, in: RoundedRectangle(cornerRadius: 3))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(isOn ? Self.litBackground : Color.meterTrack, in: RoundedRectangle(cornerRadius: 4))
             .contentShape(Rectangle())
             .onTapGesture(perform: onReset)
             .help("クリップ表示（1.5 秒で自動的に消える。クリックですぐに消す）")
@@ -125,18 +132,22 @@ struct MeterBar: View {
     }
 }
 
+/// メーターの dB 目盛り。幅が足りなければ間引く（両端は残す）。
 struct MeterScale: View {
     private static let ticks: [Float] = [-60, -48, -36, -24, -18, -12, -6, -3, 0]
 
+    /// 軸やチャンネル番号の列の幅に掛ける Dynamic Type の倍率（macOS では常に 1）。
+    @ScaledMetric(relativeTo: .caption2) private var scale: CGFloat = 1
+
     var body: some View {
         Canvas { context, size in
-            for tick in Self.ticks {
-                let x = CGFloat(Decibel.normalized(tick)) * size.width
-                let anchor: UnitPoint = tick == Self.ticks.first ? .topLeading
-                    : tick == Self.ticks.last ? .topTrailing : .top
-                context.draw(Text(String(format: "%.0f", tick)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
-                             at: CGPoint(x: x, y: 0), anchor: anchor)
+            let ticks = Self.ticks.map {
+                AxisLabels.Tick(x: CGFloat(Decibel.normalized($0)) * size.width, text: String(format: "%.0f", $0))
             }
+            AxisLabels.drawHorizontal(ticks, in: context, size: size)
         }
+        .frame(height: 14 * scale)
+        .axisTypeSize()
+        .accessibilityHidden(true)
     }
 }

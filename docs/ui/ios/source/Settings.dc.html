@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>MicMonitor 設定（iPhone のシート）</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 402px; height: 1180px; box-sizing: border-box; display: flex; flex-direction: column; background: {{t.dim}}; color: {{t.text}}; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Sans', 'Noto Sans JP', sans-serif; font-size: 17px; overflow: hidden; padding-top: 62px">
+  <div style="flex: 1; display: flex; flex-direction: column; background: {{t.sheet}}; border-radius: 38px 38px 0 0; overflow: hidden">
+    <div style="display: flex; justify-content: center; padding-top: 6px">
+      <span aria-hidden="true" style="width: 36px; height: 5px; border-radius: 3px; background: {{t.grabber}}"></span>
+    </div>
+    <div style="height: 60px; flex-shrink: 0; display: flex; align-items: center; padding: 0 16px; position: relative">
+      <h1 style="position: absolute; left: 0; right: 0; margin: 0; text-align: center; font-size: 17px; font-weight: 600; pointer-events: none">設定</h1>
+      <span style="flex: 1"></span>
+      <button style="position: relative; height: 44px; padding: 0 18px; border-radius: 22px; border: 1px solid {{t.glassBorder}}; background: {{t.glass}}; color: {{t.text}}; font-size: 17px; font-weight: 600">完了</button>
+    </div>
+
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 8px; padding: 8px 16px 32px">
+      <h2 style="margin: 12px 16px 0; font-size: 13px; font-weight: 600; color: {{t.text2}}">波形</h2>
+      <div style="background: {{t.cell}}; border-radius: 16px; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+          <label for="hist" style="font-size: 17px">履歴の長さ</label>
+          <div style="display: flex; align-items: center; gap: 12px">
+            <span style="font-size: 17px; color: {{t.text2}}; font-variant-numeric: tabular-nums">{{n}} 秒</span>
+            <div style="display: flex; height: 32px; border-radius: 9px; background: {{t.stepper}}; overflow: hidden">
+              <button onClick="{{dec}}" aria-label="1 秒短くする" style="width: 46px; height: 32px; padding: 0; border: none; background: transparent; display: flex; align-items: center; justify-content: center">
+                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7 H12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+              </button>
+              <span aria-hidden="true" style="width: 1px; margin: 7px 0; background: {{t.sep}}"></span>
+              <button onClick="{{inc}}" aria-label="1 秒長くする" style="width: 46px; height: 32px; padding: 0; border: none; background: transparent; display: flex; align-items: center; justify-content: center">
+                <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 7 H12 M7 2 V12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div style="position: relative; height: 32px">
+          <div style="position: absolute; left: 0; right: 0; top: 13px; height: 6px; border-radius: 3px; background: {{t.track}}"></div>
+          <div style="position: absolute; left: 0; top: 13px; height: 6px; width: {{nPct}}; border-radius: 3px; background: {{t.accent}}"></div>
+          <div style="position: absolute; left: {{nPct}}; top: 3px; width: 26px; height: 26px; margin-left: -13px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.12), 0 2px 6px rgba(0,0,0,0.25)"></div>
+          <input id="hist" type="range" min="1" max="60" value="{{n}}" onInput="{{setN}}" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0; cursor: pointer">
+        </div>
+      </div>
+      <p style="margin: 0 16px; font-size: 13px; line-height: 1.45; color: {{t.text2}}">1〜60 秒。波形とスペクトログラムの両方に適用されます。</p>
+
+      <h2 style="margin: 20px 16px 0; font-size: 13px; font-weight: 600; color: {{t.text2}}">スペクトログラムのカラーマップ</h2>
+      <div role="radiogroup" aria-label="カラーマップ" style="background: {{t.cell}}; border-radius: 16px; overflow: hidden">
+        <sc-for list="{{maps}}" as="m" hint-placeholder-count="5">
+          <div>
+            <button onClick="{{m.pick}}" role="radio" aria-checked="{{m.checked}}" style="width: 100%; min-height: 52px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 6px 16px; border: none; background: transparent; text-align: left">
+              <span style="width: 22px; flex-shrink: 0; color: {{t.accent}}; display: flex">
+                <sc-if value="{{m.selected}}" hint-placeholder-val="{{ false }}">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9.5 L7.5 13.5 L14.5 4.5"></path></svg>
+                </sc-if>
+              </span>
+              <span style="flex: 1; font-size: 17px">{{m.label}}</span>
+              <span aria-hidden="true" style="width: 120px; height: 14px; flex-shrink: 0; border-radius: 4px; background: {{t.plot}}; overflow: hidden; display: flex">
+                <span style="flex: 1; background: {{m.grad}}"></span>
+              </span>
+            </button>
+            <sc-if value="{{m.divider}}" hint-placeholder-val="{{ true }}">
+              <div style="height: 1px; margin-left: 50px; background: {{t.sep}}"></div>
+            </sc-if>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background: {{t.cell}}; border-radius: 16px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 14px; margin-top: 12px">
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}">見本</span>
+          <div aria-hidden="true" style="height: 96px; display: flex; background: {{t.plot}}; border-radius: 8px; overflow: hidden">
+            <sc-for list="{{sample}}" as="c" hint-placeholder-count="40">
+              <div style="flex: 1 1 0; min-width: 0; background: {{c.bg}}"></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}">色の流れ</span>
+          <div aria-hidden="true" style="height: 16px; border-radius: 4px; background: {{t.plot}}; overflow: hidden; display: flex">
+            <span style="flex: 1; background: {{grad}}"></span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums">
+            <span>-100 dB</span><span>-75</span><span>-50</span><span>-25</span><span>0 dB</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 13px; font-weight: 600; color: {{t.text2}}">特徴</span>
+          <p style="margin: 0; font-size: 15px; line-height: 1.55; text-wrap: pretty">{{summary}}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","default":"dark","options":["dark","light"],"section":"表示"},"$preview":{"width":402,"height":1180}}'>
+var MAPS = {
+  viridis: ['#440154','#482878','#3E4A89','#31688E','#26828E','#1F9E89','#35B779','#6DCD59','#B4DE2C','#FDE725'],
+  magma: ['#000004','#180F3D','#440F76','#721F81','#9E2F7F','#CD4071','#F1605D','#FD9668','#FECA8D','#FCFDBF'],
+  inferno: ['#000004','#1B0C41','#4A0C6B','#781C6D','#A52C60','#CF4446','#ED6925','#FB9B06','#F7D13D','#FCFFA4'],
+  plasma: ['#0D0887','#46039F','#7201A8','#9C179E','#BD3786','#D8576B','#ED7953','#FB9F3A','#FDCA26','#F0F921']
+};
+var ORDER = ['mono', 'viridis', 'magma', 'inferno', 'plasma'];
+var LABEL = { mono: '単色（アクセントカラー）', viridis: 'viridis', magma: 'magma', inferno: 'inferno', plasma: 'plasma' };
+var SUMMARY = {
+  mono: 'アクセントカラーの濃さでレベルを表します。ほかのグラフと色がそろい、落ち着いて見えます。弱い音の差は読み取りにくくなります。',
+  viridis: '紫から青緑を通って黄色へ。明るさが一定の割合で変わるので、レベルの差をそのまま読み取れます。色覚の違いがあっても見分けやすい定番です。',
+  magma: '黒から紫・赤を通って淡い黄色へ。暗い背景になじみ、強い音ほど明るく浮かび上がります。',
+  inferno: '黒から赤・橙を通って黄色へ。magma より色の変化がはっきりしていて、強い成分が目立ちます。',
+  plasma: '濃い青から紫・橙を通って黄色へ。弱い音でも黒くならないので、静かな部分の様子も見えます。'
+};
+var THEMES = {
+  dark: { dim: '#0A0A0B', sheet: '#1C1C1E', cell: '#2C2C2E', sep: '#3A3A3C', grabber: '#5A5A5E', stepper: '#3A3A3C', plot: '#0E0E10', text: '#F2F2F7', text2: '#A1A1A8', text3: '#8E8E93', track: '#48484A', glass: 'rgba(120,120,128,0.24)', glassBorder: 'rgba(255,255,255,0.10)', accent: '#0A84FF', accentRgb: '10,132,255' },
+  light: { dim: '#B8B8BC', sheet: '#F2F2F7', cell: '#FFFFFF', sep: '#E5E5EA', grabber: '#C7C7CC', stepper: '#E9E9EB', plot: '#F5F5F7', text: '#1D1D1F', text2: '#4F4F54', text3: '#636366', track: '#D1D1D6', glass: 'rgba(255,255,255,0.78)', glassBorder: 'rgba(0,0,0,0.08)', accent: '#007AFF', accentRgb: '0,122,255' }
+};
+function rng(seed) { var s = seed >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+function h2r(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function cmap(name, t, rgb) {
+  t = Math.max(0, Math.min(1, t));
+  if (name === 'mono') return 'rgba(' + rgb + ',' + t.toFixed(3) + ')';
+  var st = MAPS[name]; var x = t * (st.length - 1); var i = Math.min(st.length - 2, Math.floor(x)); var f = x - i;
+  var a = h2r(st[i]), b = h2r(st[i + 1]);
+  return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * f) + ',' + Math.round(a[1] + (b[1] - a[1]) * f) + ',' + Math.round(a[2] + (b[2] - a[2]) * f) + ')';
+}
+function gradient(name, rgb) {
+  var stops = []; for (var i = 0; i <= 10; i++) stops.push(cmap(name, i / 10, rgb) + ' ' + (i * 10) + '%');
+  return 'linear-gradient(to right,' + stops.join(',') + ')';
+}
+function sampleCols(name, rgb) {
+  var r = rng(11); var bursts = []; var u = 0.02;
+  while (u < 0.97) { if (u > 0.45 && u < 0.55) { u = 0.55; continue; } var w = 0.008 + r() * 0.02; bursts.push([u, w, Math.pow(10, (-5 - r() * 18) / 20)]); u += w * 1.6 + r() * 0.03; }
+  function env(x) { var s = 0.0012; for (var i = 0; i < bursts.length; i++) { var d = (x - bursts[i][0]) / bursts[i][1]; if (d > -4 && d < 4) s += bursts[i][2] * Math.exp(-d * d); } return Math.min(1, s); }
+  function shape(f, x) { var s = 0; if (f > 400) s -= 7 * Math.log2(f / 400); if (f < 150) s -= 14 * Math.log2(150 / f); var f1 = 520 + 260 * Math.sin(x * 30), f2 = 1600 + 500 * Math.cos(x * 23); return s + 10 * Math.exp(-Math.pow(Math.log2(f / f1) / 0.35, 2)) + 7 * Math.exp(-Math.pow(Math.log2(f / f2) / 0.4, 2)); }
+  var q = rng(5); var cols = []; var M = 90, B = 36;
+  for (var c = 0; c < M; c++) {
+    var x = (c + 0.5) / M; var e = 20 * Math.log10(Math.max(env(x), 1e-6)); var stops = [];
+    for (var b = 0; b < B; b++) { var f = 20 * Math.pow(2, (b + 0.5) / B * 10); var lvl = Math.max(-95 + q() * 7, e - 26 + shape(f, x) + (q() - 0.5) * 6); stops.push(cmap(name, (lvl + 100) / 100, rgb) + ' ' + ((b + 0.5) / B * 100).toFixed(1) + '%'); }
+    cols.push({ bg: 'linear-gradient(to top,' + stops.join(',') + ')' });
+  }
+  return cols;
+}
+class Component extends DCLogic {
+  renderVals() {
+    var self = this; var st = this.state || {};
+    var th = this.props.theme === 'light' ? 'light' : 'dark'; var t = THEMES[th];
+    var n = st.n ?? 10; var sel = st.sel ?? 'viridis';
+    if (!this._c || this._c.key !== sel + th) this._c = { key: sel + th, sample: sampleCols(sel, t.accentRgb) };
+    var maps = ORDER.map(function (k, i) {
+      return { label: LABEL[k], selected: k === sel, checked: k === sel ? 'true' : 'false', divider: i < ORDER.length - 1, grad: gradient(k, t.accentRgb), pick: function () { self.setState({ sel: k }); } };
+    });
+    return {
+      t: t, n: n, nPct: ((n - 1) / 59 * 100).toFixed(1) + '%',
+      setN: function (e) { self.setState({ n: Number(e.target.value) }); },
+      inc: function () { self.setState({ n: Math.min(60, n + 1) }); },
+      dec: function () { self.setState({ n: Math.max(1, n - 1) }); },
+      maps: maps, sample: this._c.sample, grad: gradient(sel, t.accentRgb), summary: SUMMARY[sel]
+    };
+  }
+}
+</script>
+</body>
+</html>

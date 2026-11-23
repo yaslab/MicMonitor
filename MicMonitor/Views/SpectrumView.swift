@@ -79,21 +79,28 @@ struct SpectrumSection: View {
     /// カード表示での高さ。カードの波形も 1 段をこの高さにそろえる。
     static let compactHeight: CGFloat = 36
 
+    @Environment(\.monitorMetrics) private var metrics
+    /// 軸やチャンネル番号の列の幅に掛ける Dynamic Type の倍率（macOS では常に 1）。
+    @ScaledMetric(relativeTo: .caption2) private var scale: CGFloat = 1
+
     var body: some View {
         if compact {
             SpectrumView(bands: bands, compact: true)
                 .frame(height: Self.compactHeight)
         } else {
+            let gutter = metrics.axisWidth * scale
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: MonitorLayout.gutterSpacing) {
+                HStack(spacing: metrics.gutterSpacing) {
                     DecibelAxis()
-                        .frame(width: MonitorLayout.gutterWidth)
+                        .frame(width: gutter)
+                        .axisTypeSize()
                     SpectrumView(bands: bands, compact: false)
                 }
-                .frame(height: 112)
+                .frame(height: metrics.spectrumHeight)
                 FrequencyAxis()
-                    .frame(height: 14)
-                    .padding(.leading, MonitorLayout.gutterWidth + MonitorLayout.gutterSpacing)
+                    .frame(height: 14 * scale)
+                    .axisTypeSize()
+                    .padding(.leading, gutter + metrics.gutterSpacing)
             }
         }
     }
@@ -107,26 +114,27 @@ private struct DecibelAxis: View {
                 let y = size.height * (1 - CGFloat(SpectrumScale.normalized(db)))
                 let anchor: UnitPoint = db == SpectrumScale.axisDB.first ? .topTrailing
                     : db == SpectrumScale.axisDB.last ? .bottomTrailing : .trailing
-                context.draw(Text(String(format: "%.0f", db)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
+                context.draw(Text(String(format: "%.0f", db)).font(AppFont.axis).foregroundStyle(.secondary),
                              at: CGPoint(x: size.width, y: y), anchor: anchor)
             }
         }
     }
 }
 
-/// 対数周波数軸の目盛り（文字だけ）。両端の文字はグラフの中に収める。
+/// 対数周波数軸の目盛り（文字だけ）。両端の文字はグラフの中に収め、幅が足りなければ間引く。
 private struct FrequencyAxis: View {
     var body: some View {
         Canvas { context, size in
             let frequencies = SpectrumScale.axisFrequencies
-            for frequency in frequencies {
-                let x = CGFloat(SpectrumScale.position(frequency)) * size.width
-                let anchor: UnitPoint = frequency == frequencies.first ? .topLeading
-                    : frequency == frequencies.last ? .topTrailing : .top
-                context.draw(Text(SpectrumScale.label(frequency)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
-                             at: CGPoint(x: frequency == frequencies.last ? size.width : x, y: 0), anchor: anchor)
+            let ticks = frequencies.map { frequency in
+                // 20k は右端（20.48 kHz）の少し手前だが、右端にそろえて描く
+                AxisLabels.Tick(x: frequency == frequencies.last ? size.width
+                                    : CGFloat(SpectrumScale.position(frequency)) * size.width,
+                                text: SpectrumScale.label(frequency))
             }
+            AxisLabels.drawHorizontal(ticks, in: context, size: size)
         }
+        .accessibilityHidden(true)
     }
 }
 

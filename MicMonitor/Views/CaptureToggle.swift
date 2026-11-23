@@ -21,7 +21,7 @@ struct CaptureToggle: View {
             Button {
                 model.togglePause()
             } label: {
-                Label(title, systemImage: systemImage)
+                label(title, systemImage: systemImage)
             }
             .buttonStyle(.borderedProminent)
             .help(help)
@@ -29,9 +29,23 @@ struct CaptureToggle: View {
             Button {
                 model.togglePause()
             } label: {
-                Label(title, systemImage: systemImage)
+                label(title, systemImage: systemImage)
             }
             .help(help)
         }
+    }
+
+    /// iOS のツールバーでは `Label` がアイコンだけになるため、文字も並べて出す（何のボタンかわかるように）。
+    @ViewBuilder
+    private func label(_ title: String, systemImage: String) -> some View {
+        #if os(macOS)
+        Label(title, systemImage: systemImage)
+        #else
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+            Text(title)
+        }
+        .padding(.horizontal, 4)
+        #endif
     }
 }

@@ -1,7 +1,7 @@
 # MicMonitor
 
-MicMonitor is a macOS app for checking your Mac's microphone input in real time.
+MicMonitor is an app for checking microphone input in real time on Mac, iPhone, and iPad.
 
-Pick a microphone from the connected input devices, and MicMonitor shows per-channel level meters (peak and RMS), a scrolling waveform of the last few seconds, a frequency spectrum, and a spectrogram at a glance. Clipping is easy to spot, and from within the app you can listen to the input through your speakers or headphones and adjust the system input volume.
+Pick a microphone from the connected input devices, and MicMonitor shows per-channel level meters (peak and RMS), a scrolling waveform of the last few seconds, a frequency spectrum, and a spectrogram at a glance. Clipping is easy to spot, and from within the app you can listen to the input through your speakers or headphones and adjust the input volume.
 
-Use it in a regular window, or switch to a small card that stays on top of other windows while you work. It's handy for a quick check that your mic is picking up sound, and not too loudly, before a call or a recording.
+On the Mac, use it in a regular window, or switch to a small card that stays on top of other windows while you work. On iPhone and iPad, the layout adapts to the screen size and orientation, and text follows your Dynamic Type setting. It's handy for a quick check that your mic is picking up sound, and not too loudly, before a call or a recording.

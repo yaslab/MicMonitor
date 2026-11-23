@@ -8,7 +8,14 @@ struct ContentView: View {
     var body: some View {
         Group {
             if model.permission == .denied {
-                PermissionDeniedView()
+                PermissionDeniedView(
+                    message: "入力レベルを表示するには、マイクへのアクセスが必要です。システム設定の「プライバシーとセキュリティ」›「マイク」で MicMonitor をオンにしてください。",
+                    buttonTitle: "システム設定を開く"
+                ) {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
             } else {
                 monitor
             }
@@ -42,50 +49,13 @@ struct ContentView: View {
 
             if let errorMessage = model.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
-                    .font(.system(size: 12))
+                    .font(AppFont.secondary)
                     .foregroundStyle(Color.danger)
             }
 
             LiveMonitorView(isActive: display.mode == .window)
 
             MonitorControls()
-        }
-    }
-}
-
-/// マイクの使用が許可されていないときの画面。許可はシステム設定でしか変えられないので、そこを開くボタンを出す。
-private struct PermissionDeniedView: View {
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "mic.slash")
-                .font(.system(size: 28))
-                .foregroundStyle(Color.danger)
-                .frame(width: 64, height: 64)
-                .background(Color.meterTrack, in: Circle())
-                .accessibilityHidden(true)
-            Text("マイクへのアクセスが許可されていません")
-                .font(.system(size: 17, weight: .semibold))
-            Text("入力レベルを表示するには、マイクへのアクセスが必要です。システム設定の「プライバシーとセキュリティ」›「マイク」で MicMonitor をオンにしてください。")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(5)
-                .frame(maxWidth: 420)
-                .fixedSize(horizontal: false, vertical: true)
-            Button("システム設定を開く") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-        }
-        .padding(40)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.panel, in: RoundedRectangle(cornerRadius: 12))
-        .overlay {
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.panelBorder)
         }
     }
 }

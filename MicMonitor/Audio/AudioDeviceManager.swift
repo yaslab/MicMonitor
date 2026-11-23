@@ -1,18 +1,18 @@
-import CoreAudio
+import Foundation
 import Observation
-import os
 
 /// 入力デバイスの一覧とシステム既定の入力デバイスを保持し、変化を通知する。
+/// OS からの取得は `PlatformInputDevices`（`InputDeviceSource`）が行う。
 @MainActor
 @Observable
 final class AudioDeviceManager {
     private(set) var inputDevices: [AudioInputDevice] = []
-    private(set) var defaultInputDeviceID: AudioDeviceID?
+    private(set) var defaultInputDeviceID: AudioDeviceHandle?
 
     /// デバイス一覧または既定デバイスが変わったときに呼ばれる。
     @ObservationIgnored var onChange: (() -> Void)?
 
-    private static let logger = Logger(subsystem: "MicMonitor", category: "Devices")
+    @ObservationIgnored private let source = PlatformInputDevices()
 
     var defaultInputDevice: AudioInputDevice? {
         guard let defaultInputDeviceID else { return nil }
@@ -21,9 +21,7 @@ final class AudioDeviceManager {
 
     init() {
         refresh()
-        let handler: @MainActor @Sendable () -> Void = { [weak self] in self?.handleHardwareChange() }
-        CoreAudioHAL.addSystemListener(kAudioHardwarePropertyDevices, handler: handler)
-        CoreAudioHAL.addSystemListener(kAudioHardwarePropertyDefaultInputDevice, handler: handler)
+        source.observeChanges { [weak self] in self?.handleChange() }
     }
 
     func device(uid: String) -> AudioInputDevice? {
@@ -31,25 +29,15 @@ final class AudioDeviceManager {
     }
 
     func refresh() {
-        let devices = CoreAudioHAL.deviceIDs()
-            .compactMap { id -> AudioInputDevice? in
-                let channels = CoreAudioHAL.inputChannelCount(id)
-                guard channels > 0, let uid = CoreAudioHAL.string(id, kAudioDevicePropertyDeviceUID) else { return nil }
-                let name = CoreAudioHAL.string(id, kAudioObjectPropertyName) ?? uid
-                if CoreAudioHAL.isPrivateAggregate(id) {
-                    Self.logger.debug("Excluded private aggregate device: \(name, privacy: .public)")
-                    return nil
-                }
-                return AudioInputDevice(id: id, uid: uid, name: name, inputChannelCount: channels)
-            }
+        let devices = source.inputDevices()
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         if devices != inputDevices { inputDevices = devices }
 
-        let defaultID = CoreAudioHAL.defaultInputDeviceID()
+        let defaultID = source.defaultInputDeviceID(in: devices)
         if defaultID != defaultInputDeviceID { defaultInputDeviceID = defaultID }
     }
 
-    private func handleHardwareChange() {
+    private func handleChange() {
         refresh()
         onChange?()
     }

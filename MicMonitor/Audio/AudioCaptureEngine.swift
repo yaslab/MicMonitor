@@ -1,5 +1,4 @@
 import AVFoundation
-import CoreAudio
 import os
 
 struct CaptureFormat: Equatable, Sendable {
@@ -61,13 +60,14 @@ final class AudioCaptureEngine {
         self.spectrogram = spectrogram
     }
 
+    /// `bindInput` で入力ノードを使うデバイスに向ける（macOS は `setDeviceID`。iOS はセッションで選ぶので何もしない）。
     @discardableResult
-    func start(deviceID: AudioDeviceID, monitoring: Bool) throws -> CaptureFormat {
+    func start(monitoring: Bool, bindInput: (AVAudioInputNode) throws -> Void) throws -> CaptureFormat {
         stop()
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
-        try input.withAUAudioUnit { unit in try unit.setDeviceID(deviceID) }
+        try bindInput(input)
 
         let format = input.outputFormat(forBus: 0)
         let channels = Int(format.channelCount)

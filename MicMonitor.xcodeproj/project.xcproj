@@ -11,8 +11,21 @@
     ],
   },
   "files": [
-    { "kind": "folder", "path": "MicMonitor", "target-membership": [ "MicMonitor" ] },
     {
+      "kind": "folder",
+      "path": "MicMonitor",
+      "target-membership": [
+        "MicMonitor",
+      ],
+      "membership-exceptions": [
+        {
+          "target": "MicMonitor",
+          "exclusions": [
+            "Info.plist",
+          ],
+        },
+      ],
+    }, {
       "kind": "group",
       "name": "Products",
       "children": [
@@ -47,10 +60,14 @@
         "ENABLE_RESOURCE_ACCESS_PRINTING": "NO",
         "ENABLE_RESOURCE_ACCESS_USB": "NO",
         "ENABLE_USER_SELECTED_FILES": "readonly",
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphone*]": "*/Platform/macOS/* */Platform/macOS/*/* */Platform/macOS/*/*/*",
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]": "*/Platform/iOS/* */Platform/iOS/*/* */Platform/iOS/*/*/*",
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=xr*]": "*/Platform/macOS/* */Platform/macOS/*/* */Platform/macOS/*/*/*",
         "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_FILE": "MicMonitor/Info.plist",
         "INFOPLIST_KEY_NSMicrophoneUsageDescription": "MicMonitor uses the microphone to show live input levels, a waveform, and a spectrum, and to let you listen to the input.",
-        "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "YES",
-        "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]": "YES",
+        "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "NO",
+        "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]": "NO",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]": "YES",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]": "YES",
         "INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]": "YES",
@@ -67,12 +84,13 @@
         "REGISTER_APP_GROUPS": "YES",
         "SDKROOT": "auto",
         "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
-        "SUPPORTED_PLATFORMS": "macosx",
+        "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator macosx xros xrsimulator",
         "SUPPORTS_MACCATALYST": "NO",
         "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
         "SWIFT_EMIT_LOC_STRINGS": "YES",
         "SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY": "YES",
         "SWIFT_VERSION": "6.0",
+        "TARGETED_DEVICE_FAMILY": "1,2,7",
       },
     },
   ],

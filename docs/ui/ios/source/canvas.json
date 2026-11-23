@@ -1,0 +1,21 @@
+{"v": 3, "createdOnFiles": {"v": 1, "at": "2026-11-23T06:30:00Z"}, "title": "MicMonitor iPhone・iPad デザイン", "launch": {"view": "canvas"}, "pages": [],
+"boards": {
+"Main.dc.html": {"x": 0, "y": 0, "w": 402, "h": 1320, "title": "iPhone 縦（計測中・スクロール全体）", "radius": 40, "is_interactive": true},
+"PhonePaused.dc.html": {"x": 482, "y": 0, "w": 402, "h": 1320, "title": "iPhone 縦（計測を停止中）", "radius": 40},
+"PhoneNoPermission.dc.html": {"x": 964, "y": 0, "w": 402, "h": 874, "title": "iPhone 縦（マイク権限なし）", "radius": 40},
+"Settings.dc.html": {"x": 1446, "y": 0, "w": 402, "h": 1180, "title": "iPhone 設定（シート・スクロール全体）", "radius": 40, "is_interactive": true},
+"PhoneLandscape.dc.html": {"x": 1928, "y": 0, "w": 874, "h": 760, "title": "iPhone 横（縦が compact・スクロール全体）", "radius": 40},
+"TabletPortrait.dc.html": {"x": 0, "y": 1740, "w": 820, "h": 1180, "title": "iPad 縦（regular × regular・1 列）", "radius": 18},
+"TabletLandscape.dc.html": {"x": 900, "y": 1740, "w": 1180, "h": 820, "title": "iPad 横（regular × regular・2 列）", "radius": 18},
+"PhoneLight.dc.html": {"x": 0, "y": 3340, "w": 402, "h": 1320, "title": "ライト：iPhone 縦（計測中）", "radius": 40},
+"TabletLandscapeLight.dc.html": {"x": 482, "y": 3340, "w": 1180, "h": 820, "title": "ライト：iPad 横（計測中）", "radius": 18}
+},
+"order": ["Main.dc.html", "PhonePaused.dc.html", "PhoneNoPermission.dc.html", "Settings.dc.html", "PhoneLandscape.dc.html", "TabletPortrait.dc.html", "TabletLandscape.dc.html", "PhoneLight.dc.html", "TabletLandscapeLight.dc.html"],
+"notes": {
+"t1": {"x": 0, "y": -300, "text": "iPhone（幅が compact）", "kind": "title1", "maxW": 2802},
+"t2": {"x": 0, "y": 1440, "text": "iPad（regular × regular）", "kind": "title1", "maxW": 2080},
+"t3": {"x": 0, "y": 3040, "text": "ライトモード", "kind": "title1", "maxW": 1662},
+"s1": {"x": 2160, "y": 1740, "w": 420, "fill": "yellow", "text": "レイアウトの切り替え（Size Class）\n・幅 compact × 高さ regular（iPhone 縦、iPad の狭い分割）→ 1 列、大きいタイトル\n・高さ compact（iPhone 横）→ 2 列（左: 入力・音量・モニター再生の操作、右: レベル・波形・スペクトログラム・スペクトル。メーターのバーを広く取るため）、小さいタイトル\n・regular × regular（iPad）→ 横幅が 1000pt 以上なら 2 列、未満なら 1 列。グラフを高く、余白を広く\n\n文字は Dynamic Type（この画面は標準の Large）。本文 17・副 15・見出し 13・説明 12・軸 11。グラフの軸の文字は大きくしすぎない（上限あり）\n\nカード表示は Mac のみ。iOS では設定をシートで開く"},
+"s2": {"x": 2160, "y": 2440, "w": 420, "fill": "gray", "text": "波形・スペクトル・スペクトログラムのデータは見た目用の仮のもの（Mac のデザインと同じ）"}
+},
+"designSystems": []}

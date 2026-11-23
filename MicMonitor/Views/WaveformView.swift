@@ -6,6 +6,10 @@ struct WaveformSection: View {
     /// カード表示用: チャンネル番号と時間軸を省き、1 段をスペクトルと同じ高さにする。
     let compact: Bool
 
+    @Environment(\.monitorMetrics) private var metrics
+    /// 軸やチャンネル番号の列の幅に掛ける Dynamic Type の倍率（macOS では常に 1）。
+    @ScaledMetric(relativeTo: .caption2) private var scale: CGFloat = 1
+
     var body: some View {
         if compact {
             VStack(spacing: 3) {
@@ -15,19 +19,21 @@ struct WaveformSection: View {
                 }
             }
         } else {
+            let gutter = metrics.gutterWidth * scale
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(snapshot.channels.indices, id: \.self) { index in
-                    HStack(spacing: MonitorLayout.gutterSpacing) {
+                    HStack(spacing: metrics.gutterSpacing) {
                         Text(ChannelLabel.label(index: index, count: snapshot.channels.count))
-                            .font(.system(size: 11).monospacedDigit())
+                            .font(AppFont.channelLabel)
                             .foregroundStyle(.secondary)
-                            .frame(width: MonitorLayout.gutterWidth, alignment: .leading)
+                            .frame(width: gutter, alignment: .leading)
+                            .axisTypeSize()
                         waveform(index)
-                            .frame(minHeight: 54, maxHeight: .infinity)
+                            .frame(minHeight: metrics.waveformHeight, maxHeight: .infinity)
                     }
                 }
                 TimeAxis(seconds: seconds)
-                    .padding(.leading, MonitorLayout.gutterWidth + MonitorLayout.gutterSpacing)
+                    .padding(.leading, gutter + metrics.gutterSpacing)
             }
         }
     }

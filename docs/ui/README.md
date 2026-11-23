@@ -1,6 +1,7 @@
 # MicMonitor 画面デザイン
 
 SPEC.md（仕様）の第 6 章に対応する見た目の資料。仕様と食い違うときは SPEC.md を優先する。
+ここは Mac の画面。iPhone・iPad の画面は ios/README.md（SPEC.md の 6.2 節）。
 ダークモードとライトモードの両方がある。アプリはシステムの外観設定に従って切り替える。
 
 ## ファイル
@@ -129,3 +130,4 @@ source/canvas.json は、Claude の Artifact「MicMonitor 画面デザイン」�
 - ピッカー・スライダー・トグル・ボタン・設定画面は、SwiftUI の標準コントロールで近づければよい。
 - メーター・波形・スペクトル・スペクトログラムは `Canvas` で自前描画する。
 - カードの背景は `NSVisualEffectView`（`.hudWindow`）。外観に合わせて自動で明暗が変わる。
+- 文字の大きさは px をそのまま pt にせず、`AppFont` の text style で指定する（macOS の text style は大きさが固定で、ここの寸法と同じになるものを選んでいる。iOS では Dynamic Type に従う）。

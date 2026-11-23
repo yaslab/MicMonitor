@@ -10,11 +10,10 @@ struct SettingsView: View {
         let range = MonitorModel.historyRange
         Form {
             Section {
+                #if os(macOS)
                 LabeledContent("履歴の長さ") {
                     HStack(spacing: 14) {
-                        Slider(value: $model.historySecondsValue,
-                               in: Double(range.lowerBound)...Double(range.upperBound),
-                               step: 1)
+                        historySlider
                         Stepper(value: $model.historySeconds, in: range) {
                             Text("\(model.historySeconds) 秒")
                                 .monospacedDigit()
@@ -22,23 +21,101 @@ struct SettingsView: View {
                         }
                     }
                 }
+                #else
+                // 幅の狭い画面でもスライダーを広く取れるよう、ステッパーの行の下に置く
+                VStack(spacing: 8) {
+                    Stepper(value: $model.historySeconds, in: range) {
+                        LabeledContent("履歴の長さ") {
+                            Text("\(model.historySeconds) 秒")
+                                .monospacedDigit()
+                        }
+                    }
+                    historySlider
+                        .accessibilityHidden(true)
+                }
+                #endif
             } header: {
                 Text("波形")
             } footer: {
                 Text("1〜60 秒。波形とスペクトログラムの両方に適用されます。")
-                    .font(.system(size: 12))
+                    .font(AppFont.footnote)
                     .foregroundStyle(.secondary)
             }
+            #if os(macOS)
             Section("スペクトログラム") {
                 ColormapList(selection: $colormap)
                 ColormapDescription(colormap: colormap)
             }
+            #else
+            Section("スペクトログラムのカラーマップ") {
+                ForEach(SpectrogramColormap.allCases) { item in
+                    ColormapRow(colormap: item, isSelected: item == colormap) { colormap = item }
+                }
+            }
+            Section {
+                ColormapDescription(colormap: colormap)
+            }
+            #endif
         }
         .formStyle(.grouped)
+        #if os(macOS)
         .frame(width: 560)
+        #endif
+    }
+
+    private var historySlider: some View {
+        @Bindable var model = model
+        let range = MonitorModel.historyRange
+        #if os(macOS)
+        return Slider(value: $model.historySecondsValue,
+                      in: Double(range.lowerBound)...Double(range.upperBound),
+                      step: 1) {
+            Text("履歴の長さ")
+        }
+        .labelsHidden()
+        #else
+        // iOS は step を付けると 60 個の目盛りの点が出るので付けない（値は historySecondsValue が丸める）
+        return Slider(value: $model.historySecondsValue,
+                      in: Double(range.lowerBound)...Double(range.upperBound)) {
+            Text("履歴の長さ")
+        }
+        .labelsHidden()
+        #endif
     }
 }
 
+#if !os(macOS)
+/// iOS: カラーマップの選択の 1 行（選択中はチェックマーク）。
+private struct ColormapRow: View {
+    let colormap: SpectrogramColormap
+    let isSelected: Bool
+    let select: () -> Void
+
+    @ScaledMetric(relativeTo: .body) private var swatchWidth: CGFloat = 120
+
+    var body: some View {
+        Button(action: select) {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .opacity(isSelected ? 1 : 0)
+                    .accessibilityHidden(true)
+                Text(colormap.name)
+                    .foregroundStyle(Color.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ColormapGradient(colormap: colormap)
+                    .frame(width: min(swatchWidth, 160), height: 14)
+            }
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(colormap.name)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+}
+#endif
+
+#if os(macOS)
 /// カラーマップの選択。各行に色の見本（弱い → 強い）を付ける。
 private struct ColormapList: View {
     @Binding var selection: SpectrogramColormap
@@ -83,6 +160,8 @@ private struct ColormapList: View {
     }
 }
 
+#endif
+
 /// カラーマップの横向きのグラデーション（左が弱い）。単色は透明から始まるので、グラフの下地の上に重ねる。
 private struct ColormapGradient: View {
     let colormap: SpectrogramColormap
@@ -110,7 +189,11 @@ private struct ColormapDescription: View {
             VStack(alignment: .leading, spacing: 6) {
                 heading("見本")
                 ColormapSample(colormap: colormap)
+                    #if os(macOS)
                     .frame(height: 84)
+                    #else
+                    .frame(height: 96)
+                    #endif
             }
             VStack(alignment: .leading, spacing: 6) {
                 heading("色の流れ")
@@ -127,13 +210,13 @@ private struct ColormapDescription: View {
                     Spacer()
                     Text("0 dB")
                 }
-                .font(.system(size: 10).monospacedDigit())
+                .font(AppFont.axis)
                 .foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 4) {
                 heading("特徴")
                 Text(colormap.summary)
-                    .font(.system(size: 12))
+                    .font(AppFont.secondary)
                     .lineSpacing(4)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -144,7 +227,7 @@ private struct ColormapDescription: View {
 
     private func heading(_ title: String) -> some View {
         Text(title)
-            .font(.system(size: 11, weight: .semibold))
+            .font(AppFont.panelTitle)
             .kerning(0.4)
             .foregroundStyle(.secondary)
     }

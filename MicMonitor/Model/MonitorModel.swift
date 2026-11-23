@@ -22,6 +22,8 @@ final class MonitorModel {
 
     let deviceManager = AudioDeviceManager()
     let inputVolume = InputVolumeController()
+    /// iOS のオーディオセッション（macOS では入力ノードへのデバイスの指定だけを行う）。
+    private let session = AudioSessionController()
     let levels = LevelStore()
     let waveform: WaveformHistory
     let spectrum = SpectrumAnalyzer()
@@ -31,6 +33,12 @@ final class MonitorModel {
     @ObservationIgnored private var pendingRestart: Task<Void, Never>?
     @ObservationIgnored private var wantsRunning = false
     @ObservationIgnored private var isStarting = false
+    /// iOS: 通話などの割り込みで止められている間は true。終わるまで再起動しない。
+    @ObservationIgnored private var isInterrupted = false
+    /// セッションの有効化・無効化を順に行うためのタスク（前の操作が終わってから次を始める）。
+    @ObservationIgnored private var sessionWork: Task<Void, Never>?
+    /// 再起動の世代。有効化を待っている間に別の再起動や停止・割り込みがあったら、古い再起動ではエンジンを始めない。
+    @ObservationIgnored private var restartGeneration = 0
 
     var selection: DeviceSelection {
         didSet {
@@ -103,6 +111,7 @@ final class MonitorModel {
 
         deviceManager.onChange = { [weak self] in self?.reconcile() }
         engine.onConfigurationChange = { [weak self] in self?.scheduleRestart() }
+        session.onEvent = { [weak self] event in self?.handleSessionEvent(event) }
     }
 
     // MARK: - 表示用
@@ -174,7 +183,9 @@ final class MonitorModel {
     func stop() {
         wantsRunning = false
         pendingRestart?.cancel()
+        restartGeneration += 1
         engine.stop()
+        enqueueSessionWork { [session] in await session.deactivate() }
         isRunning = false
         resetMeters()
     }
@@ -219,6 +230,12 @@ final class MonitorModel {
         Self.logger.info("Microphone permission: \(String(describing: self.permission), privacy: .public); \(self.deviceManager.inputDevices.count) input devices, default: \(self.deviceManager.defaultInputDevice?.name ?? "none", privacy: .public)")
     }
 
+    /// 選択中の（接続されている）デバイス。システム既定のとき、または未接続なら nil。
+    private var selectedDevice: AudioInputDevice? {
+        guard case .device(let uid) = selection else { return nil }
+        return deviceManager.device(uid: uid)
+    }
+
     private func resolveDevice() -> AudioInputDevice? {
         switch selection {
         case .systemDefault:
@@ -230,26 +247,65 @@ final class MonitorModel {
 
     /// 選択・接続状況に合わせてエンジンを (再) 起動する。
     private func reconcile(force: Bool = false) {
-        guard wantsRunning, permission == .granted else { return }
+        guard wantsRunning, permission == .granted, !isInterrupted else { return }
         let target = resolveDevice()
         if !force, isRunning, target?.id == activeDevice?.id { return }
-        restart(with: target)
+        restart()
     }
 
-    private func restart(with device: AudioInputDevice?) {
+    private func restart() {
         pendingRestart?.cancel()
         engine.stop()
         isRunning = false
         monitorErrorMessage = nil
+        restartGeneration += 1
+        let generation = restartGeneration
+        let preferredInput = selectedDevice
+        let monitoring = monitorEnabled
+        // iOS はエンジンを作る前に、セッションで入力を選んで有効にする（macOS では何もしない）。
+        // 有効化は非同期なので、待っている間に別の再起動・停止・割り込みがあったら何もしない
+        enqueueSessionWork { [weak self, session] in
+            do {
+                try await session.activate(preferredInput: preferredInput, monitoring: monitoring)
+            } catch {
+                guard let self, generation == self.restartGeneration else { return }
+                self.activeDevice = nil
+                self.inputVolume.attach(to: nil)
+                self.fail("オーディオセッションを開始できませんでした: \(error.localizedDescription)")
+                Self.logger.error("Failed to activate audio session: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+            guard let self, generation == self.restartGeneration, self.wantsRunning, !self.isInterrupted else { return }
+            self.startEngine()
+        }
+    }
+
+    /// セッションの操作を、前の操作が終わってから行う（有効化と無効化が入れ違わないように）。
+    private func enqueueSessionWork(_ operation: @escaping @MainActor () async -> Void) {
+        let previous = sessionWork
+        sessionWork = Task {
+            await previous?.value
+            await operation()
+        }
+    }
+
+    /// セッションを有効にしたあとで、使うデバイスを決めてエンジンを始める。
+    private func startEngine() {
+        // iOS では有効にしてから入力の一覧と経路が決まるため、取り直してから使うデバイスを決める
+        deviceManager.refresh()
+        let device = resolveDevice()
         activeDevice = device
-        inputVolume.attach(to: device?.id)
+        inputVolume.attach(to: device)
         guard let device else {
             fail("入力デバイスが見つかりません。")
             Self.logger.error("No input device to start")
             return
         }
         do {
-            let format = try engine.start(deviceID: device.id, monitoring: monitorEnabled)
+            let session = session
+            let format = try engine.start(monitoring: monitorEnabled) { input in
+                try session.bind(input, to: device)
+            }
             activeFormat = format
             isRunning = true
             errorMessage = nil
@@ -312,6 +368,33 @@ final class MonitorModel {
         }
     }
     #endif
+
+    /// iOS のオーディオセッションの出来事。割り込みの間は止めておき、終わったら再開する。
+    private func handleSessionEvent(_ event: AudioSessionEvent) {
+        Self.logger.info("Audio session event: \(String(describing: event), privacy: .public)")
+        switch event {
+        case .interruptionBegan:
+            isInterrupted = true
+            pendingRestart?.cancel()
+            restartGeneration += 1
+            engine.stop()
+            isRunning = false
+            resetMeters()
+            if wantsRunning { errorMessage = "通話などの割り込みのため、計測を中断しています。" }
+        case .interruptionEnded(let shouldResume):
+            isInterrupted = false
+            errorMessage = nil
+            if shouldResume {
+                reconcile(force: true)
+            } else if wantsRunning {
+                // 再開がすすめられないとき（ほかのアプリが音声を使い続けているなど）は、計測を止めた状態にする。
+                // 「計測を開始」で再開できる
+                pause()
+            }
+        case .needsRestart:
+            scheduleRestart()
+        }
+    }
 
     /// 構成変更通知は続けて届くことがあるため、少し待ってから再起動する。
     private func scheduleRestart() {

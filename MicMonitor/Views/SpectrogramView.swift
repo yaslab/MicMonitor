@@ -8,20 +8,26 @@ struct SpectrogramSection: View {
     /// カード表示用: 目盛りと時間軸を省いて、スペクトルと同じ高さにする。
     var compact = false
 
+    @Environment(\.monitorMetrics) private var metrics
+    /// 軸やチャンネル番号の列の幅に掛ける Dynamic Type の倍率（macOS では常に 1）。
+    @ScaledMetric(relativeTo: .caption2) private var scale: CGFloat = 1
+
     var body: some View {
         if compact {
             SpectrogramView(snapshot: snapshot)
                 .frame(height: SpectrumSection.compactHeight)
         } else {
+            let gutter = metrics.axisWidth * scale
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: MonitorLayout.gutterSpacing) {
+                HStack(spacing: metrics.gutterSpacing) {
                     FrequencyLabels(frequencies: SpectrumScale.decadeFrequencies)
-                        .frame(width: MonitorLayout.gutterWidth)
+                        .frame(width: gutter)
+                        .axisTypeSize()
                     SpectrogramView(snapshot: snapshot)
                 }
-                .frame(height: 104)
+                .frame(height: metrics.spectrogramHeight)
                 TimeAxis(seconds: seconds)
-                    .padding(.leading, MonitorLayout.gutterWidth + MonitorLayout.gutterSpacing)
+                    .padding(.leading, gutter + metrics.gutterSpacing)
             }
         }
     }
@@ -35,8 +41,9 @@ private struct FrequencyLabels: View {
         Canvas { context, size in
             for frequency in frequencies {
                 let y = (1 - CGFloat(SpectrumScale.position(frequency))) * size.height
-                context.draw(Text(SpectrumScale.label(frequency)).font(MonitorLayout.axisFont).foregroundStyle(.secondary),
-                             at: CGPoint(x: size.width, y: min(max(y, 7), size.height - 7)), anchor: .trailing)
+                let text = context.resolve(Text(SpectrumScale.label(frequency)).font(AppFont.axis).foregroundStyle(.secondary))
+                let half = text.measure(in: size).height / 2
+                context.draw(text, at: CGPoint(x: size.width, y: min(max(y, half), size.height - half)), anchor: .trailing)
             }
         }
     }
