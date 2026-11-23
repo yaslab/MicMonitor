@@ -101,6 +101,8 @@ final class MonitorModel {
     /// ユーザーが計測を止めているか。止めている間は `start()` が呼ばれても始めない
     /// （ウィンドウやカードが表示されたときに呼ばれるため）。次回の起動時は計測を始める。
     private(set) var isPaused = false
+    /// 始めても入力が届かなかったために止めているか。「計測を開始」で始め直す。デバイスや選択が変わったときも始め直す。
+    private(set) var isWithoutInput = false
     private(set) var errorMessage: String?
     /// モニター再生だけが失敗したときの理由（計測は続いている）。
     private(set) var monitorErrorMessage: String?
@@ -197,6 +199,7 @@ final class MonitorModel {
 
     func stop() {
         wantsRunning = false
+        isWithoutInput = false
         pendingRestart?.cancel()
         restartGeneration += 1
         isActivating = false
@@ -244,15 +247,19 @@ final class MonitorModel {
         await start()
     }
 
-    /// 計測が止まっているか（ユーザーが止めているか、割り込みで止められている）。
+    /// 計測が止まっているか（ユーザーが止めているか、割り込みで止められているか、入力が届かなかった）。
     /// 停止・再開ボタンを「計測を開始」にし、計測の欄とモニター再生を止めた状態の表示にする。
-    var isCaptureStopped: Bool { isPaused || isInterrupted }
+    var isCaptureStopped: Bool { isPaused || isInterrupted || isWithoutInput }
 
     func togglePause() {
         if isPaused {
             Task { await resume() }
         } else if isInterrupted {
             retryAfterInterruption()
+        } else if isWithoutInput {
+            Self.logger.info("Retry after no input by user")
+            errorMessage = nil
+            reconcile(force: true)
         } else {
             pause()
         }
@@ -318,6 +325,7 @@ final class MonitorModel {
         pendingRestart?.cancel()
         engine.stop()
         isRunning = false
+        isWithoutInput = false
         monitorErrorMessage = nil
         restartGeneration += 1
         let generation = restartGeneration
@@ -377,6 +385,7 @@ final class MonitorModel {
             errorMessage = nil
             monitorErrorMessage = engine.monitorError
             Self.logger.info("Started \(device.name, privacy: .public) (id \(device.id)) \(format.sampleRate) Hz \(format.channelCount) ch, monitoring: \(self.monitorEnabled)")
+            checkInputArrives(from: device)
             #if DEBUG
             logSignalAfterStart()
             #endif
@@ -385,6 +394,30 @@ final class MonitorModel {
             Self.logger.error("Failed to start \(device.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    /// エンジンが始まっても入力が届かないことがある（デバイスとフォーマットが合わないなど）。
+    /// 動作中の表示のまま止まって見えないように、しばらく待っても届かなければ止めて理由を出す。
+    private func checkInputArrives(from device: AudioInputDevice) {
+        let generation = restartGeneration
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.inputArrivalTimeout)
+            guard let self, generation == self.restartGeneration, self.isRunning,
+                  self.engine.hasReceivedInput == false
+            else { return }
+            // 計測を止めた状態にする（ボタンは「計測を開始」になり、押すと始め直す）。
+            // デバイスや選択が変わったときも始め直すので、`wantsRunning` はそのままにする
+            self.restartGeneration += 1
+            self.engine.stop()
+            self.enqueueSessionWork { [session] in await session.deactivate() }
+            self.isRunning = false
+            self.isWithoutInput = true
+            self.fail("「\(device.name)」から音声が届いていません。")
+            Self.logger.error("No input from \(device.name, privacy: .public) within \(Self.inputArrivalTimeout, privacy: .public)")
+        }
+    }
+
+    /// Bluetooth の経路の切り替えやサンプルレートの変更で、最初の入力が届くまで数秒かかることがあるので長めにとる。
+    private static let inputArrivalTimeout = Duration.seconds(5)
 
     /// 開始できなかったときに、表示をリセットして理由を出す。
     private func fail(_ message: String) {

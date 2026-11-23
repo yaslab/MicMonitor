@@ -69,11 +69,8 @@ final class AudioCaptureEngine {
         let input = engine.inputNode
         try bindInput(input)
 
-        let format = input.outputFormat(forBus: 0)
+        guard let format = Self.captureFormat(of: input) else { throw CaptureError.unsupportedFormat }
         let channels = Int(format.channelCount)
-        guard channels > 0, format.sampleRate > 0,
-              format.commonFormat == .pcmFormatFloat32, !format.isInterleaved
-        else { throw CaptureError.unsupportedFormat }
 
         // 再生に失敗しても計測は止めない
         var playback: MonitorPlayback?
@@ -157,11 +154,46 @@ final class AudioCaptureEngine {
     /// 出力側（モニター再生）は、出力デバイスの変更などでエンジンが止まったときに再構成する。
     private func handleConfigurationChange() {
         guard let engine else { return }
-        let current = CaptureFormat(engine.inputNode.outputFormat(forBus: 0))
+        let current = Self.captureFormat(of: engine.inputNode).map(CaptureFormat.init)
         let playbackStopped = playback.map { !$0.isRunning } ?? false
         let needsRestart = !engine.isRunning || current != format || playbackStopped
-        MonitorModel.logger.debug("Configuration change: running \(engine.isRunning), format \(current.sampleRate) Hz \(current.channelCount) ch, playback stopped \(playbackStopped), restart: \(needsRestart)")
+        MonitorModel.logger.debug("Configuration change: running \(engine.isRunning), format \(current?.sampleRate ?? 0) Hz \(current?.channelCount ?? 0) ch, playback stopped \(playbackStopped), restart: \(needsRestart)")
         if needsRestart { onConfigurationChange?() }
+    }
+
+    /// 入力ノードから取り出すフォーマット（Float32・非インターリーブ）。対応できなければ nil。
+    ///
+    /// macOS では `setDeviceID` で入力デバイスを変えても、入力ノードの `outputFormat(forBus: 0)` は
+    /// 切り替える前のデバイス（既定の入力）のフォーマットのまま変わらない。それで接続すると
+    /// デバイスとサンプルレートが合わず、エンジンは始まってもシンクノードが一度も呼ばれない。
+    /// そのため、デバイス側のフォーマット（`inputFormat(forBus: 0)`）のサンプルレートと ch 数を使う。
+    private static func captureFormat(of input: AVAudioInputNode) -> AVAudioFormat? {
+        #if os(macOS)
+        let device = input.inputFormat(forBus: 0)
+        guard device.channelCount > 0, device.sampleRate > 0 else { return nil }
+        // 3 ch 以上はチャンネルレイアウトが無いとフォーマットを作れない（接続にも失敗する）。
+        // デバイスのレイアウトがあればそれを、無ければ順番どおりの個別チャンネルとして使う
+        if let layout = device.channelLayout, layout.channelCount == device.channelCount {
+            return AVAudioFormat(standardFormatWithSampleRate: device.sampleRate, channelLayout: layout)
+        }
+        if device.channelCount <= 2 {
+            return AVAudioFormat(standardFormatWithSampleRate: device.sampleRate, channels: device.channelCount)
+        }
+        guard let layout = AVAudioChannelLayout(layoutTag: kAudioChannelLayoutTag_DiscreteInOrder | device.channelCount)
+        else { return nil }
+        return AVAudioFormat(standardFormatWithSampleRate: device.sampleRate, channelLayout: layout)
+        #else
+        let format = input.outputFormat(forBus: 0)
+        guard format.channelCount > 0, format.sampleRate > 0,
+              format.commonFormat == .pcmFormatFloat32, !format.isInterleaved
+        else { return nil }
+        return format
+        #endif
+    }
+
+    /// 始めてからシンクノードが一度でも呼ばれたか（入力が届いているか）。動いていなければ nil。
+    var hasReceivedInput: Bool? {
+        ring.map { $0.writeCallCount > 0 }
     }
 
     #if DEBUG
