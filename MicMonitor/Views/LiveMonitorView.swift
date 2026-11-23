@@ -6,12 +6,12 @@ import SwiftUI
 /// 表示していない側は `isActive = false` で描画を止める。
 ///
 /// ウィンドウ表示では各欄を見出し付きのパネル（`MonitorPanel`）に入れる。カード表示では詰めて並べ、
-/// メーターのすぐ下に `belowMeters`（カードの入力音量スライダー）を挟む。
+/// メーターのすぐ上に `aboveMeters`（カードの入力音量スライダー）を置く。
 ///
 /// iOS では `leading`（入力のカード）と `trailing`（モニター再生）も一緒に並べる。1 列なら上から
 /// leading・レベル・波形・スペクトログラム・スペクトル・trailing、2 列なら左の列に操作（leading・trailing）、
 /// 右の列に計測（レベル・波形・スペクトログラム・スペクトル）。メーターのバーを広く取るため、レベルは右の列に置く。
-struct LiveMonitorView<BelowMeters: View, Leading: View, Trailing: View>: View {
+struct LiveMonitorView<AboveMeters: View, Leading: View, Trailing: View>: View {
     /// カード表示用の詰めたレイアウト（メーターを半分の高さで表示し、dB 目盛りを省く。波形・スペクトル・スペクトログラムは小さく出す）。
     var compact = false
     /// 波形を表示するか。ウィンドウ表示では常に表示し、カード表示では切り替えられる。
@@ -24,7 +24,7 @@ struct LiveMonitorView<BelowMeters: View, Leading: View, Trailing: View>: View {
     let isActive: Bool
     /// 2 列にするときの左の列の幅（nil なら 1 列）。
     var leftColumnWidth: CGFloat?
-    @ViewBuilder var belowMeters: BelowMeters
+    @ViewBuilder var aboveMeters: AboveMeters
     @ViewBuilder var leading: Leading
     @ViewBuilder var trailing: Trailing
 
@@ -62,12 +62,12 @@ struct LiveMonitorView<BelowMeters: View, Leading: View, Trailing: View>: View {
         let paused = meters == nil
         if compact {
             VStack(alignment: .leading, spacing: 8) {
+                aboveMeters
                 if let meters {
                     LevelMeterSection(readings: meters, compact: true, onResetClip: { ballistics.resetClip() })
                 } else {
                     PausedNotice(compact: true)
                 }
-                belowMeters
                 if showsWaveform {
                     waveform
                 }
@@ -152,29 +152,29 @@ struct LiveMonitorView<BelowMeters: View, Leading: View, Trailing: View>: View {
 }
 
 extension LiveMonitorView where Leading == EmptyView, Trailing == EmptyView {
-    /// カード表示用（メーターの下に `belowMeters` を挟む）。
+    /// カード表示用（メーターの上に `aboveMeters` を置く）。
     init(compact: Bool = false, showsWaveform: Bool = true, showsSpectrum: Bool = true,
          cardShowsSpectrogram: Binding<Bool> = .constant(false), isActive: Bool,
-         @ViewBuilder belowMeters: () -> BelowMeters) {
+         @ViewBuilder aboveMeters: () -> AboveMeters) {
         self.init(compact: compact, showsWaveform: showsWaveform, showsSpectrum: showsSpectrum,
                   cardShowsSpectrogram: cardShowsSpectrogram, isActive: isActive, leftColumnWidth: nil,
-                  belowMeters: belowMeters, leading: { EmptyView() }, trailing: { EmptyView() })
+                  aboveMeters: aboveMeters, leading: { EmptyView() }, trailing: { EmptyView() })
     }
 }
 
-extension LiveMonitorView where BelowMeters == EmptyView, Leading == EmptyView, Trailing == EmptyView {
+extension LiveMonitorView where AboveMeters == EmptyView, Leading == EmptyView, Trailing == EmptyView {
     /// Mac のウィンドウ表示用。
     init(isActive: Bool) {
         self.init(isActive: isActive) { EmptyView() }
     }
 }
 
-extension LiveMonitorView where BelowMeters == EmptyView {
+extension LiveMonitorView where AboveMeters == EmptyView {
     /// iOS の画面用。`leftColumnWidth` を渡すと 2 列にする。
     init(isActive: Bool, leftColumnWidth: CGFloat?,
          @ViewBuilder leading: () -> Leading, @ViewBuilder trailing: () -> Trailing) {
         self.init(isActive: isActive, leftColumnWidth: leftColumnWidth,
-                  belowMeters: { EmptyView() }, leading: leading, trailing: trailing)
+                  aboveMeters: { EmptyView() }, leading: leading, trailing: trailing)
     }
 }
 

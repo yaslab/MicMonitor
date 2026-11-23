@@ -37,6 +37,20 @@ button{font:inherit;color:inherit;cursor:pointer}
     </button>
   </div>
 
+  <div style="display: flex; align-items: center; gap: 6px; height: 18px">
+    <button aria-label="入力をミュート" style="width: 18px; height: 18px; flex-shrink: 0; padding: 0; border: none; background: transparent; color: {{t.textSoft}}; display: flex; align-items: center; justify-content: center">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5 a5 5 0 0 0 10 0 M8 12.5 V14.5"></path></svg>
+    </button>
+    <div style="flex: 1; position: relative; height: 18px">
+      <div style="position: absolute; left: 0; right: 0; top: 7px; height: 3px; border-radius: 2px; background: {{t.sliderTrack}}"></div>
+      <div style="position: absolute; left: 0; top: 7px; height: 3px; width: 62%; border-radius: 2px; background: {{t.accent}}"></div>
+      <sc-for list="{{volTicks}}" as="t" hint-placeholder-count="7">
+        <div style="position: absolute; top: 13px; left: {{t.left}}; width: 1px; height: 3px; background: {{t.tick}}"></div>
+      </sc-for>
+      <div style="position: absolute; left: 62%; top: 2.5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: {{t.knob}}; box-shadow: {{t.knobShadow}}"></div>
+      <input type="range" min="0" max="100" value="62" aria-label="入力音量" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0">
+    </div>
+  </div>
   <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
     <div style="display: flex; flex-direction: column; gap: 4px">
       <sc-for list="{{meters}}" as="m" hint-placeholder-count="2">
@@ -62,21 +76,6 @@ button{font:inherit;color:inherit;cursor:pointer}
   <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
     <div style="height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: {{t.pausedBox}}; color: {{t.textSoft}}; font-size: 11px">計測を停止中</div>
   </sc-if>
-
-  <div style="display: flex; align-items: center; gap: 6px; height: 18px">
-    <button aria-label="入力をミュート" style="width: 18px; height: 18px; flex-shrink: 0; padding: 0; border: none; background: transparent; color: {{t.textSoft}}; display: flex; align-items: center; justify-content: center">
-      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8" rx="2.5"></rect><path d="M3 7.5 a5 5 0 0 0 10 0 M8 12.5 V14.5"></path></svg>
-    </button>
-    <div style="flex: 1; position: relative; height: 18px">
-      <div style="position: absolute; left: 0; right: 0; top: 7px; height: 3px; border-radius: 2px; background: {{t.sliderTrack}}"></div>
-      <div style="position: absolute; left: 0; top: 7px; height: 3px; width: 62%; border-radius: 2px; background: {{t.accent}}"></div>
-      <sc-for list="{{volTicks}}" as="t" hint-placeholder-count="7">
-        <div style="position: absolute; top: 13px; left: {{t.left}}; width: 1px; height: 3px; background: {{t.tick}}"></div>
-      </sc-for>
-      <div style="position: absolute; left: 62%; top: 2.5px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: {{t.knob}}; box-shadow: {{t.knobShadow}}"></div>
-      <input type="range" min="0" max="100" value="62" aria-label="入力音量" style="position: absolute; inset: 0; width: 100%; margin: 0; opacity: 0">
-    </div>
-  </div>
 
   <sc-if value="{{showWave}}" hint-placeholder-val="{{ true }}">
     <div style="display: flex; flex-direction: column; gap: 3px">
