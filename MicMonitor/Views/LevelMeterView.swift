@@ -83,7 +83,7 @@ struct LevelMeterSection: View {
 
 /// メーターの右端（0 dB の先）の細いクリップ表示。クリップすると赤く点灯し、1.5 秒で自動的に消える。
 /// クリックですぐに消せる。小さいので、押せる範囲は周りに広げている。
-/// 点灯時、ダークでは周りに同色の光、ライトでは同色の 18% の輪を付ける（docs/ui/README.md）。
+/// 点灯時、ダークでは周りに同色の光、ライトでは同色の 18% の輪を付ける（docs/ui/README.md の色の一覧）。
 private struct ClipIndicator: View {
     let isOn: Bool
     let onReset: () -> Void

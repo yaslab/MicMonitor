@@ -9,7 +9,7 @@
         "http.server",
         "8000",
         "--directory",
-        "docs/ui/source"
+        "docs/ui/macos/source"
       ],
       "port": 8000
     },

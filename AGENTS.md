@@ -3,7 +3,7 @@
 マイク入力（レベル・波形・スペクトル・スペクトログラム）をリアルタイムに確認するアプリ。macOS・iOS・iPadOS（visionOS もビルドは通る）。SwiftUI + AVAudioEngine + Core Audio HAL（macOS）/ AVAudioSession（iOS）。
 
 - 仕様: @docs/SPEC.md（スレッドとエンジン再構成の方針は第 3 章）
-- 画面デザイン: Mac は docs/ui/README.md と docs/ui/source、iPhone・iPad は docs/ui/ios。仕様と食い違うときは SPEC.md が優先
+- 画面デザイン: 共通のことは docs/ui/README.md、Mac は docs/ui/macos、iPhone・iPad は docs/ui/ios。仕様と食い違うときは SPEC.md が優先
 - ビルド・プレビュー・実行: Xcode MCP（`xcrun mcpbridge`）を使う。Xcode の GUI を開いていなくても、先に XcodeOpenWorkspace でプロジェクトを開けば使える
 - `MicMonitor/` はフォルダ参照なので、ファイルの追加・削除でプロジェクトファイルを編集する必要はない
 - プラットフォーム専用のファイルは `MicMonitor/` の下の `Platform/macOS/` か `Platform/iOS/` フォルダに置く（`Platform/iOS/` は iOS・iPadOS・visionOS 共通）。ターゲットのビルド設定 `EXCLUDED_SOURCE_FILE_NAMES[sdk=…]` で、もう一方の SDK のビルドから除外している。ファイルの一部だけが違うときは `#if os(macOS)` で分ける
@@ -22,7 +22,7 @@
 - カード表示中はメインウィンドウを閉じずに `orderOut` で隠している。閉じると AppKit が最後のウィンドウとみなしてアプリが終了する
 - 入力デバイスの一覧からは、AVAudioEngine が自動で作るプライベートな集約デバイス（`CADefaultDeviceAggregate-…`）を除いている
 - `SpectrogramColormapTables.swift` は matplotlib から書き出した表。手で編集しない
-- docs/ui/source の HTML にある波形などのデータと 10 色のカラーマップは見た目用の仮のもの。アプリでは使わない
+- docs/ui/macos/source と docs/ui/ios/source の HTML にある波形などのデータと 10 色のカラーマップは見た目用の仮のもの。アプリでは使わない
 - 文字は `.font(.system(size:))` で固定せず、`AppFont` の text style を使う（iOS の Dynamic Type のため。macOS では大きさが変わらない。Mac 専用のカードだけは固定のまま）。計測の欄の寸法は `MonitorMetrics`（環境値）から取る
 - iOS のオーディオセッションの `setActive` はメインスレッドで呼ばない（`AudioSessionController.iOS.swift` の `@concurrent` の関数で呼んでいる）。非同期の `activate(options:)` に置き換えない（完了直後は入力が 0 Hz でエンジンの開始に失敗する）
 - iOS では Info.plist の `UIApplicationSceneManifest` の自動生成を止めている（自動生成だと複数ウィンドウが有効になり、`LevelStore.read()` の読み手が 2 つになる）。生成に戻さない

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// 画面の文字の役割ごとのフォント。すべて text style なので、iOS では Dynamic Type で大きさが変わる。
 /// macOS の text style は大きさが固定（body 13・callout 12・subheadline 11・footnote 10）で、
-/// docs/ui の Mac の寸法と同じになるように選んでいる。iOS の寸法は docs/ui/ios のデザイン（標準の Large）に合わせる。
+/// docs/ui/macos の寸法と同じになるように選んでいる。iOS の寸法は docs/ui/ios のデザイン（標準の Large）に合わせる。
 enum AppFont {
     #if os(macOS)
     /// 欄の見出し（「レベル」「波形」など）。Mac 11pt / iOS 13pt。
@@ -64,7 +64,7 @@ struct MonitorMetrics: Equatable {
     var pausedMeterHeight: CGFloat = 56
     var pausedSpectrumHeight: CGFloat = 130
 
-    /// Mac のウィンドウ（docs/ui の Main.dc.html）。
+    /// Mac のウィンドウ（docs/ui/macos の Main.dc.html）。
     static let window = MonitorMetrics()
 }
 

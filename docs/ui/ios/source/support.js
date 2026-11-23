@@ -1,16 +1,19 @@
 /*
- * support.js — docs/ui/source/*.dc.html をブラウザで表示するための簡易ランタイム
+ * support.js — docs/ui/macos/source・docs/ui/ios/source の *.dc.html をブラウザで表示するための簡易ランタイム
  *
  * Design キャンバスの本来のランタイムではなく、このフォルダのファイルを表示するために
  * 必要な機能（{{…}} の差し込み、<sc-if>、<sc-for>、<dc-import>、onClick などのイベント、
- * setState による再描画）だけを実装した互換版です。
+ * setState による再描画）だけを実装した互換版です。両方のフォルダに同じものを置いています。
  *
  * 開き方:
- *   - Main / Settings / Card は、ファイルをダブルクリックしてブラウザで直接開けます。
- *   - 他のファイルを読み込む画面（WindowPaused、*Light、CardVariants など）は、
- *     ブラウザの制限で file:// からは読み込めないため、ローカルサーバー経由で開きます:
- *       cd docs/ui/source && python3 -m http.server 8000
+ *   - 他のファイルを読み込まない画面（Mac の Main / Settings / Card、iOS の Main / Settings）は、
+ *     ファイルをダブルクリックしてブラウザで直接開けます。
+ *   - 他のファイルを読み込む画面（*Light、*Paused など）は、ブラウザの制限で file:// からは
+ *     読み込めないため、リポジトリのルートからローカルサーバー経由で開きます:
+ *       python3 -m http.server 8000 --directory docs/ui/macos/source
  *       → http://localhost:8000/WindowLight.dc.html
+ *       python3 -m http.server 8001 --directory docs/ui/ios/source
+ *       → http://localhost:8001/PhoneLight.dc.html
  */
 (function () {
   'use strict';
