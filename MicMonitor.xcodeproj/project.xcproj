@@ -47,6 +47,7 @@
       "build-settings": {
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
+        "DEVELOPMENT_TEAM": "65W3HJERJX",
         "ENABLE_APP_SANDBOX": "YES",
         "ENABLE_INCOMING_NETWORK_CONNECTIONS": "NO",
         "ENABLE_OUTGOING_NETWORK_CONNECTIONS": "NO",
@@ -60,9 +61,21 @@
         "ENABLE_RESOURCE_ACCESS_PRINTING": "NO",
         "ENABLE_RESOURCE_ACCESS_USB": "NO",
         "ENABLE_USER_SELECTED_FILES": "readonly",
-        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphone*]": "*/Platform/macOS/* */Platform/macOS/*/* */Platform/macOS/*/*/*",
-        "EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]": "*/Platform/iOS/* */Platform/iOS/*/* */Platform/iOS/*/*/*",
-        "EXCLUDED_SOURCE_FILE_NAMES[sdk=xr*]": "*/Platform/macOS/* */Platform/macOS/*/* */Platform/macOS/*/*/*",
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphone*]": [
+          "*/Platform/macOS/*",
+          "*/Platform/macOS/*/*",
+          "*/Platform/macOS/*/*/*",
+        ],
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]": [
+          "*/Platform/iOS/*",
+          "*/Platform/iOS/*/*",
+          "*/Platform/iOS/*/*/*",
+        ],
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=xr*]": [
+          "*/Platform/macOS/*",
+          "*/Platform/macOS/*/*",
+          "*/Platform/macOS/*/*/*",
+        ],
         "GENERATE_INFOPLIST_FILE": "YES",
         "INFOPLIST_FILE": "MicMonitor/Info.plist",
         "INFOPLIST_KEY_NSMicrophoneUsageDescription": "MicMonitor uses the microphone to show live input levels, a waveform, and a spectrum, and to let you listen to the input.",
