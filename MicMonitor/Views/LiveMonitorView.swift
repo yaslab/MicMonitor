@@ -41,7 +41,7 @@ struct LiveMonitorView<BelowMeters: View, Leading: View, Trailing: View>: View {
     private static var frozenNote: String { "停止時点のまま表示" }
 
     var body: some View {
-        if model.isPaused {
+        if model.isCaptureStopped {
             sections(meters: nil, spectrum: nil)
         } else {
             TimelineView(.animation(paused: !model.isRunning || !isActive)) { context in

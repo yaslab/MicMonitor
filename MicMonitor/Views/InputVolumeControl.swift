@@ -40,7 +40,7 @@ struct InputVolumeControl: View {
                         .font(AppFont.secondary)
                         .foregroundStyle(.secondary)
                         .frame(width: 52, alignment: .leading)
-                    muteButton(.system(size: 16), width: 20)
+                    muteButton(AppFont.muteIcon, width: 20)
                         .frame(width: 28, height: 28)
                     slider
                     Text(percentText)
@@ -54,7 +54,7 @@ struct InputVolumeControl: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     // iOS は Dynamic Type に合わせてアイコンも大きくする
-                    muteButton(.title3, width: nil)
+                    muteButton(AppFont.muteIcon, width: nil)
                         .frame(minWidth: 44, minHeight: 44)
                     slider
                     Text(percentText)

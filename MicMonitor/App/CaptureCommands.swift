@@ -7,7 +7,7 @@ struct CaptureCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
-            Button(model.isPaused ? "計測を開始" : "計測を停止") {
+            Button(model.isCaptureStopped ? "計測を開始" : "計測を停止") {
                 model.togglePause()
             }
             .keyboardShortcut(".", modifiers: .command)

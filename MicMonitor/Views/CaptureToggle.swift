@@ -9,7 +9,7 @@ struct CaptureToggle: View {
     @Environment(MonitorModel.self) private var model
 
     var body: some View {
-        let paused = model.isPaused
+        let paused = model.isCaptureStopped
         let title = paused ? "計測を開始" : "計測を停止"
         let help = paused ? "マイクからの入力の計測を再開する（⌘.）" : "マイクからの入力の計測を止め、マイクの使用をやめる（⌘.）"
         let systemImage = paused ? "play.fill" : "pause.fill"

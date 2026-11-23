@@ -68,10 +68,11 @@ enum AudioSessionEvent: Sendable {
 protocol AudioSessionControlling: AnyObject {
     /// セッションの出来事を受け取る（メインスレッド）。macOS では呼ばれない。
     var onEvent: ((AudioSessionEvent) -> Void)? { get set }
-    /// エンジンを作る前に呼ぶ。`preferredInput` が nil ならシステム既定の入力に追従する。
+    /// エンジンを作る前に呼ぶ。`preferredInputUID` が nil、またはその入力が見つからなければシステム既定の入力に追従する。
+    /// UID で渡すのは、入力の一覧がセッションを録音用にしてからでないと揃わないため（一覧から引いたデバイスでは取りこぼす）。
     /// `monitoring` はモニター再生のために出力も使うか。
     /// セッションの有効化は時間がかかるため非同期（メインスレッドを止めない）。
-    func activate(preferredInput: AudioInputDevice?, monitoring: Bool) async throws
+    func activate(preferredInputUID: String?, monitoring: Bool) async throws
     /// 計測を止めたときに呼ぶ。
     func deactivate() async
     /// エンジンの入力ノードを `device` に向ける。エンジンを開始する前に呼ぶ。

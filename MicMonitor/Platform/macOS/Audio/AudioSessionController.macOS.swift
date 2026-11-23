@@ -6,7 +6,7 @@ import AVFoundation
 final class AudioSessionController: AudioSessionControlling {
     var onEvent: ((AudioSessionEvent) -> Void)?
 
-    func activate(preferredInput: AudioInputDevice?, monitoring: Bool) async throws {}
+    func activate(preferredInputUID: String?, monitoring: Bool) async throws {}
 
     func deactivate() async {}
 

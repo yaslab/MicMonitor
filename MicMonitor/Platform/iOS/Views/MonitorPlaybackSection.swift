@@ -8,7 +8,7 @@ struct MonitorPlaybackSection: View {
 
     var body: some View {
         @Bindable var model = model
-        let available = model.canMonitor && !model.isPaused
+        let available = model.canMonitor && !model.isCaptureStopped
         VStack(alignment: .leading, spacing: 8) {
             VStack(spacing: 0) {
                 Toggle("モニター再生", isOn: $model.monitorEnabled)

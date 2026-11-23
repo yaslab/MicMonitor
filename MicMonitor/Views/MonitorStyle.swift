@@ -25,6 +25,8 @@ enum AppFont {
     static let secondary = Font.callout
     /// 補足の説明文（モニター再生の注意など）。Mac 12pt / iOS 13pt。
     static let footnote = Font.callout
+    /// 入力音量のミュートボタンのアイコン（Mac のウィンドウと iOS）。Mac 15pt / iOS 20pt。
+    static let muteIcon = Font.title3
     #else
     static let panelTitle = Font.footnote.weight(.semibold)
     static let panelCaption = Font.caption
@@ -36,6 +38,7 @@ enum AppFont {
     static let axis = Font.caption2.monospacedDigit()
     static let secondary = Font.subheadline
     static let footnote = Font.footnote
+    static let muteIcon = Font.title3
     #endif
 }
 

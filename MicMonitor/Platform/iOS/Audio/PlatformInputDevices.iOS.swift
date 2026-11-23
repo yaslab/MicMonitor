@@ -7,10 +7,14 @@ typealias AudioDeviceHandle = String
 /// （`MonitorModel.restart()`）。
 ///
 /// iOS には「システム既定の入力」を直接得る API がない。優先する入力（`preferredInput`）を指定していない
-/// ときの経路の入力を既定とみなし、指定している間は最後に見た既定を使う（それが外れていたら内蔵マイク）。
+/// ときの経路の入力を既定とみなし、指定している間は最後に見た既定を使う。指定している間は経路から既定を
+/// 確かめられないので、最後に見た既定が分からないとき（指定したまま起動した、指定中に入力が増減した）は推測せず nil にする
+/// （「システム既定」の名前を出さない）。
 @MainActor
 final class PlatformInputDevices: InputDeviceSource {
     private var lastDefaultUID: String?
+    /// 直前に見た入力の UID。指定中に増減したら、最後に見た既定はもう当てにならない。
+    private var lastDeviceUIDs: Set<String> = []
     private var tasks: [Task<Void, Never>] = []
 
     func inputDevices() -> [AudioInputDevice] {
@@ -23,10 +27,17 @@ final class PlatformInputDevices: InputDeviceSource {
 
     func defaultInputDeviceID(in devices: [AudioInputDevice]) -> AudioDeviceHandle? {
         let session = AVAudioSession.sharedInstance()
-        if session.preferredInput == nil, let uid = session.currentRoute.inputs.first?.uid {
-            lastDefaultUID = uid
+        let uids = Set(devices.map(\.uid))
+        let isPinned = session.preferredInput != nil
+        if !isPinned {
+            if let uid = session.currentRoute.inputs.first?.uid { lastDefaultUID = uid }
+        } else if uids != lastDeviceUIDs {
+            lastDefaultUID = nil
         }
-        if let uid = lastDefaultUID, devices.contains(where: { $0.uid == uid }) { return uid }
+        lastDeviceUIDs = uids
+        if let uid = lastDefaultUID, uids.contains(uid) { return uid }
+        if isPinned { return nil }
+        // 録音用にする前など、経路に入力がないとき
         let builtIn = session.availableInputs?.first { $0.portType == .builtInMic }?.uid
         return builtIn ?? devices.first?.uid
     }

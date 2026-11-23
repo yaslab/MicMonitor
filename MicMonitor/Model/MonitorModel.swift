@@ -34,11 +34,16 @@ final class MonitorModel {
     @ObservationIgnored private var wantsRunning = false
     @ObservationIgnored private var isStarting = false
     /// iOS: 通話などの割り込みで止められている間は true。終わるまで再起動しない。
-    @ObservationIgnored private var isInterrupted = false
+    /// この間は計測を止めているものとして表示する（`isCaptureStopped`）。
+    private(set) var isInterrupted = false
     /// セッションの有効化・無効化を順に行うためのタスク（前の操作が終わってから次を始める）。
     @ObservationIgnored private var sessionWork: Task<Void, Never>?
     /// 再起動の世代。有効化を待っている間に別の再起動や停止・割り込みがあったら、古い再起動ではエンジンを始めない。
     @ObservationIgnored private var restartGeneration = 0
+    /// セッションの有効化を待っている間は true。始めるときに使うデバイスを決め直すので、その間の再起動は要らない。
+    @ObservationIgnored private var isActivating = false
+    /// 直前の再起動でセッションに指定した優先する入力の UID（iOS）。選択が変わったら、使うデバイスが同じでも指定し直す。
+    @ObservationIgnored private var appliedPreferredInputUID: String?
 
     var selection: DeviceSelection {
         didSet {
@@ -172,7 +177,7 @@ final class MonitorModel {
         // Xcode のプレビューではマイクを使わない（プレビューを描いたプロセスが裏に残り、マイクを使い続けることがある）
         if Self.isRunningForPreviews { return }
         // 権限の確認を待っている間にもう一方から呼ばれても、二重に起動しない
-        if isPaused || isStarting || (wantsRunning && isRunning) { return }
+        if isPaused || isStarting || (wantsRunning && (isRunning || isActivating)) { return }
         isStarting = true
         defer { isStarting = false }
         wantsRunning = true
@@ -184,6 +189,7 @@ final class MonitorModel {
         wantsRunning = false
         pendingRestart?.cancel()
         restartGeneration += 1
+        isActivating = false
         engine.stop()
         enqueueSessionWork { [session] in await session.deactivate() }
         isRunning = false
@@ -204,16 +210,34 @@ final class MonitorModel {
     func resume() async {
         guard isPaused else { return }
         isPaused = false
+        // 割り込みの終わりの通知は届かないことがある。ユーザーが再開したら割り込みは終わったものとして始め直す
+        // （まだ続いていればセッションの有効化に失敗し、その理由を出す）
+        isInterrupted = false
         Self.logger.info("Resumed by user")
         await start()
     }
 
+    /// 計測が止まっているか（ユーザーが止めているか、割り込みで止められている）。
+    /// 停止・再開ボタンを「計測を開始」にし、計測の欄とモニター再生を止めた状態の表示にする。
+    var isCaptureStopped: Bool { isPaused || isInterrupted }
+
     func togglePause() {
         if isPaused {
             Task { await resume() }
+        } else if isInterrupted {
+            retryAfterInterruption()
         } else {
             pause()
         }
+    }
+
+    /// 割り込みで止められているときに「計測を開始」が押された。割り込みの終わりの通知は届かないことがあるので、
+    /// 終わったものとして始め直す（まだ続いていればセッションの有効化に失敗し、その理由を出す）。
+    private func retryAfterInterruption() {
+        Self.logger.info("Retry after interruption by user")
+        isInterrupted = false
+        if errorMessage == Self.interruptionMessage { errorMessage = nil }
+        reconcile(force: true)
     }
 
     // MARK: - 内部
@@ -230,10 +254,16 @@ final class MonitorModel {
         Self.logger.info("Microphone permission: \(String(describing: self.permission), privacy: .public); \(self.deviceManager.inputDevices.count) input devices, default: \(self.deviceManager.defaultInputDevice?.name ?? "none", privacy: .public)")
     }
 
-    /// 選択中の（接続されている）デバイス。システム既定のとき、または未接続なら nil。
-    private var selectedDevice: AudioInputDevice? {
+    /// iOS でセッションの優先する入力に指定する UID。システム既定なら nil。
+    /// 一覧（`deviceManager`）はセッションを録音用にするまで揃わないので、一覧に無くても選択の UID をそのまま渡す。
+    /// macOS は入力ノードにデバイスを直接指定するので使わない（常に nil）。
+    private var preferredInputUID: String? {
+        #if os(macOS)
+        return nil
+        #else
         guard case .device(let uid) = selection else { return nil }
-        return deviceManager.device(uid: uid)
+        return uid
+        #endif
     }
 
     private func resolveDevice() -> AudioInputDevice? {
@@ -248,8 +278,12 @@ final class MonitorModel {
     /// 選択・接続状況に合わせてエンジンを (再) 起動する。
     private func reconcile(force: Bool = false) {
         guard wantsRunning, permission == .granted, !isInterrupted else { return }
-        let target = resolveDevice()
-        if !force, isRunning, target?.id == activeDevice?.id { return }
+        if !force, preferredInputUID == appliedPreferredInputUID {
+            // 有効化を待っている間は、始めるときにデバイスを決め直すので待つ
+            // （有効化そのものが起こす経路の変更通知で、始めかけたものを捨てないように）
+            if isActivating { return }
+            if isRunning, resolveDevice()?.id == activeDevice?.id { return }
+        }
         restart()
     }
 
@@ -260,22 +294,27 @@ final class MonitorModel {
         monitorErrorMessage = nil
         restartGeneration += 1
         let generation = restartGeneration
-        let preferredInput = selectedDevice
+        let preferredInputUID = preferredInputUID
+        appliedPreferredInputUID = preferredInputUID
+        isActivating = true
         let monitoring = monitorEnabled
         // iOS はエンジンを作る前に、セッションで入力を選んで有効にする（macOS では何もしない）。
         // 有効化は非同期なので、待っている間に別の再起動・停止・割り込みがあったら何もしない
         enqueueSessionWork { [weak self, session] in
             do {
-                try await session.activate(preferredInput: preferredInput, monitoring: monitoring)
+                try await session.activate(preferredInputUID: preferredInputUID, monitoring: monitoring)
             } catch {
                 guard let self, generation == self.restartGeneration else { return }
+                self.isActivating = false
                 self.activeDevice = nil
                 self.inputVolume.attach(to: nil)
                 self.fail("オーディオセッションを開始できませんでした: \(error.localizedDescription)")
                 Self.logger.error("Failed to activate audio session: \(error.localizedDescription, privacy: .public)")
                 return
             }
-            guard let self, generation == self.restartGeneration, self.wantsRunning, !self.isInterrupted else { return }
+            guard let self, generation == self.restartGeneration else { return }
+            self.isActivating = false
+            guard self.wantsRunning, !self.isInterrupted else { return }
             self.startEngine()
         }
     }
@@ -369,6 +408,8 @@ final class MonitorModel {
     }
     #endif
 
+    private static let interruptionMessage = "通話などの割り込みのため、計測を中断しています。"
+
     /// iOS のオーディオセッションの出来事。割り込みの間は止めておき、終わったら再開する。
     private func handleSessionEvent(_ event: AudioSessionEvent) {
         Self.logger.info("Audio session event: \(String(describing: event), privacy: .public)")
@@ -377,13 +418,15 @@ final class MonitorModel {
             isInterrupted = true
             pendingRestart?.cancel()
             restartGeneration += 1
+            isActivating = false
             engine.stop()
             isRunning = false
             resetMeters()
-            if wantsRunning { errorMessage = "通話などの割り込みのため、計測を中断しています。" }
+            if wantsRunning { errorMessage = Self.interruptionMessage }
         case .interruptionEnded(let shouldResume):
             isInterrupted = false
-            errorMessage = nil
+            // 割り込みの表示だけを消す（再開中に起きたほかのエラーは残す）
+            if errorMessage == Self.interruptionMessage { errorMessage = nil }
             if shouldResume {
                 reconcile(force: true)
             } else if wantsRunning {

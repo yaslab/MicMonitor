@@ -44,8 +44,8 @@ final class AudioSessionController: AudioSessionControlling {
     /// 非同期の `activate(options:)` は使わない。完了してすぐにエンジンを作ると、入力のフォーマットが
     /// まだ 0 Hz で I/O ユニットの初期化に失敗した（iOS 27 シミュレータ、-10851）。同期の `setActive(true)` は
     /// 戻った時点で経路の設定まで終わっている。
-    func activate(preferredInput: AudioInputDevice?, monitoring: Bool) async throws {
-        try await Self.configureAndActivate(preferredInputUID: preferredInput?.uid, monitoring: monitoring)
+    func activate(preferredInputUID: String?, monitoring: Bool) async throws {
+        try await Self.configureAndActivate(preferredInputUID: preferredInputUID, monitoring: monitoring)
     }
 
     func deactivate() async {

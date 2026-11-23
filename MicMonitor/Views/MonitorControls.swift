@@ -6,7 +6,7 @@ struct MonitorControls: View {
 
     var body: some View {
         @Bindable var model = model
-        let available = model.canMonitor && !model.isPaused
+        let available = model.canMonitor && !model.isCaptureStopped
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 Toggle("モニター再生", isOn: $model.monitorEnabled)
@@ -60,7 +60,7 @@ struct MonitorCaption: View {
     }
 
     private var captionText: String {
-        if model.isPaused {
+        if model.isCaptureStopped {
             return "計測を停止しているため、モニター再生も止まっています"
         }
         if let format = model.activeFormat, !model.canMonitor {
