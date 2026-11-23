@@ -1,13 +1,13 @@
 # MicMon 画面デザイン
 
-DESIGN.md（仕様）の第 6 章に対応する見た目の資料。仕様と食い違うときは DESIGN.md を優先する。
+SPEC.md（仕様）の第 6 章に対応する見た目の資料。仕様と食い違うときは SPEC.md を優先する。
 ダークモードとライトモードの両方がある。アプリはシステムの外観設定に従って切り替える。
 
 ## ファイル
 
 ### ダークモード
 
-| スクリーンショット | ソース | 内容 | DESIGN.md |
+| スクリーンショット | ソース | 内容 | SPEC.md |
 |---|---|---|---|
 | screenshots/01-window-running.png | source/Main.dc.html | ウィンドウ表示（計測中） | 6 |
 | screenshots/02-window-paused.png | source/WindowPaused.dc.html | 計測を停止中（Main を paused で表示） | 6（計測の停止） |
@@ -36,7 +36,7 @@ DESIGN.md（仕様）の第 6 章に対応する見た目の資料。仕様と�
 - 色は `{{t.xxx}}` の形で書いてあり、`<script>` 内の `THEMES` の同じ名前の値が入る（下の表と同じ）。
 - `{{…}}` は `<script>` 内の `renderVals()` が返す値。`<sc-if>` は条件表示、`<sc-for>` は繰り返し。
 - `<script>` の中の波形・スペクトル・スペクトログラムのデータは**見た目用の仮データ**。アプリでは使わない（実データは AudioPump 経由のストアから取る）。
-- カラーマップの色の表（`MAPS`）は各 10 色の近似。アプリでは DESIGN.md のとおり matplotlib の 256 色の表を使う。
+- カラーマップの色の表（`MAPS`）は各 10 色の近似。アプリでは SPEC.md のとおり matplotlib の 256 色の表を使う。
 
 ## 色の一覧
 

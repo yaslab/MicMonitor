@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// ウィンドウ表示の寸法（docs/design の Main.dc.html）。
+/// ウィンドウ表示の寸法（docs/ui の Main.dc.html）。
 enum MonitorLayout {
     /// グラフの左のチャンネル番号・目盛りの列の幅。
     static let gutterWidth: CGFloat = 28

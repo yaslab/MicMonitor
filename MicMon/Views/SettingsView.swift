@@ -168,7 +168,7 @@ private struct ColormapSample: View {
     }
 }
 
-/// 見本のスペクトログラム（docs/design の Settings.dc.html の見本と同じ作り方）。
+/// 見本のスペクトログラム（docs/ui の Settings.dc.html の見本と同じ作り方）。
 private enum SampleSpectrogram {
     static let columns = 110
     static let rows = 40
