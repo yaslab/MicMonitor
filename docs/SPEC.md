@@ -94,6 +94,7 @@ Mutex を使うのはポンプのタスクと MainActor だけ
 | `SpectrumBallistics` | `SpectrumBands` でまとめた帯域ごとに、表示側の減衰とピークホールドを行う | MainActor（View が所有） |
 | `MeterBallistics` | 表示側の減衰・ピークホールド・クリップ表示の保持（1.5 秒） | MainActor（View が所有） |
 | `MonitorModel` | 権限、選択、設定、エンジンの再構成を統括 | MainActor |
+| `TimingProbe` | DEBUG ビルドのみの計測用。ポンプの処理間隔と描画フレームの間隔を記録し、計測開始後のログに統計を出す | Sendable + Mutex |
 
 ### 3.1 スレッドの方針
 
@@ -189,25 +190,7 @@ ch 数が変わらなければ波形履歴は保持する。スペクトログ�
 - 描画: メーター・波形・スペクトル・スペクトログラムの描画（`LiveMonitorView`）はウィンドウとカードで共有する。`LevelStore.read()` は読むたびに Peak の保持をリセットするため、表示していない側は描画を止める。
 - 計測の開始はウィンドウとカードの両方から呼ばれるため、動作中や開始処理中なら何もしない。カード表示中もウィンドウを隠すだけなので計測は止めない。
 
-## 7. ファイル構成
-
-```
-MicMon/
-  App/MicMonApp.swift, DisplayModeController.swift
-  Audio/AudioInputDevice.swift, CoreAudioHAL.swift, AudioDeviceManager.swift,
-        AudioCaptureEngine.swift, SampleRingBuffer.swift, AudioPump.swift, MonitorPlayback.swift,
-        InputVolumeController.swift, LevelStore.swift,
-        WaveformHistory.swift, Decibel.swift,
-        SpectrumAnalyzer.swift, SpectrumBands.swift, SpectrogramHistory.swift
-  Model/DeviceSelection.swift, MonitorModel.swift, TimingProbe.swift（DEBUG のみ・計測用）
-  Views/ContentView.swift, DevicePicker.swift, LevelMeterView.swift, MeterBallistics.swift,
-        WaveformView.swift, MonitorControls.swift, InputVolumeControl.swift, SettingsView.swift,
-        LiveMonitorView.swift, CardView.swift, CaptureToggle.swift, IconToggleButton.swift,
-        WindowAccessor.swift, SpectrumView.swift, SpectrogramView.swift,
-        SpectrogramColormap.swift, SpectrogramColormapTables.swift
-```
-
-## 8. 今後
+## 7. 今後
 
 - 単体テスト（`WaveformHistory` のビン化と容量変更、`LevelStore` の dB 値）。テストターゲットを Xcode で追加してから行う
 - 3ch 以上のデバイスでのモニター再生
