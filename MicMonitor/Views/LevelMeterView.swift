@@ -2,7 +2,7 @@ import SwiftUI
 
 struct LevelMeterSection: View {
     let readings: [MeterReading]
-    /// カード表示用: バー 7pt・文字 9pt にし、チャンネル番号・クリップ表示・dB 目盛り・ゾーンの区切りを省く。
+    /// カード表示用: バー 7pt・文字 9pt にし、チャンネル番号・数値の単位・dB 目盛りを省く。
     let compact: Bool
     let onResetClip: () -> Void
 
@@ -14,22 +14,35 @@ struct LevelMeterSection: View {
     private static let zoneGap: CGFloat = 2
     /// バーと右端のクリップ表示の間隔。
     private static let clipSpacing: CGFloat = 2
+    /// カードのクリップ表示の幅（ウィンドウは `MonitorMetrics.clipCapWidth`）。
+    private static let cardClipWidth: CGFloat = 4
 
     var body: some View {
         if compact {
+            // ウィンドウと同じ作り（右肩の数値・ゾーンの区切り・右端のクリップ表示・色の帯）を小さくしたもの
             VStack(spacing: 4) {
                 ForEach(readings.indices, id: \.self) { index in
                     let reading = readings[index]
-                    HStack(spacing: 6) {
-                        MeterBar(reading: reading, track: .cardTrack, cornerRadius: 2)
-                            .frame(height: 7)
-                        // 数字はピークホールド（直近のピークを 1.5 秒保持してから下げる）。クリップ中は赤にする
+                    VStack(alignment: .trailing, spacing: 1) {
+                        // 右肩の数字はピークホールド（直近のピークを 1.5 秒保持してから下げる）。クリップ中は赤にする
                         Text(Decibel.format(reading.holdDB))
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundStyle(reading.clipped ? Color.danger : Color.secondary)
-                            .frame(width: 34, alignment: .trailing)
+                            .frame(height: 11)
+                        HStack(spacing: Self.clipSpacing) {
+                            MeterBar(reading: reading, track: .cardTrack, cornerRadius: 2, zoneGap: Self.zoneGap)
+                            ClipIndicator(isOn: reading.clipped, offColor: .cardTrack, onReset: onResetClip)
+                                .frame(width: Self.cardClipWidth)
+                        }
+                        .frame(height: 7)
                     }
                 }
+                HStack(spacing: Self.clipSpacing) {
+                    ZoneStrip(gap: Self.zoneGap)
+                        .frame(height: 2)
+                    Color.clear.frame(width: Self.cardClipWidth, height: 1)
+                }
+                .padding(.top, 1)
             }
         } else {
             let gutter = metrics.gutterWidth * scale
@@ -86,6 +99,8 @@ struct LevelMeterSection: View {
 /// 点灯時、ダークでは周りに同色の光、ライトでは同色の 18% の輪を付ける（docs/ui/README.md の色の一覧）。
 private struct ClipIndicator: View {
     let isOn: Bool
+    /// 消灯時の色。カードではメーターの溝と同じ色にする。
+    var offColor: Color = .clipOff
     let onReset: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -99,7 +114,7 @@ private struct ClipIndicator: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: 2)
-            .fill(isOn ? Color.clipOn : Color.clipOff)
+            .fill(isOn ? Color.clipOn : offColor)
             .background {
                 if isOn && colorScheme == .light {
                     RoundedRectangle(cornerRadius: 4)

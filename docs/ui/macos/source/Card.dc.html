@@ -40,15 +40,23 @@ button{font:inherit;color:inherit;cursor:pointer}
   <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
     <div style="display: flex; flex-direction: column; gap: 4px">
       <sc-for list="{{meters}}" as="m" hint-placeholder-count="2">
-        <div style="display: grid; grid-template-columns: 1fr 34px; gap: 6px; align-items: center">
-          <div style="position: relative; height: 7px; border-radius: 2px; background: {{t.hudTrack}}; overflow: hidden">
-            <div style="position: absolute; inset: 0; opacity: 0.38; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.peakClip}}"></div>
-            <div style="position: absolute; inset: 0; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.rmsClip}}"></div>
-            <div style="position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; left: {{m.holdLeft}}; background: {{m.holdColor}}"></div>
+        <div style="display: flex; flex-direction: column; gap: 1px">
+          <div style="height: 11px; text-align: right; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 9px; line-height: 11px; font-variant-numeric: tabular-nums; color: {{m.textColor}}">{{m.holdText}}</div>
+          <div style="display: flex; align-items: center; gap: 2px; height: 7px">
+            <div style="flex: 1; position: relative; height: 7px; border-radius: 2px; overflow: hidden; -webkit-mask-image: {{zoneMask}}; mask-image: {{zoneMask}}">
+              <div style="position: absolute; inset: 0; background: {{t.hudTrack}}"></div>
+              <div style="position: absolute; inset: 0; opacity: 0.38; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.peakClip}}"></div>
+              <div style="position: absolute; inset: 0; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.rmsClip}}"></div>
+              <div style="position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; left: {{m.holdLeft}}; background: {{m.holdColor}}"></div>
+            </div>
+            <span aria-hidden="true" style="width: 4px; height: 7px; flex-shrink: 0; border-radius: 1.5px; background: {{m.clipBg}}; box-shadow: {{m.clipGlow}}"></span>
           </div>
-          <span style="text-align: right; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 9px; font-variant-numeric: tabular-nums; color: {{m.textColor}}">{{m.holdText}}</span>
         </div>
       </sc-for>
+      <div style="display: flex; gap: 2px; margin-top: 1px">
+        <div style="flex: 1; height: 2px; border-radius: 1px; opacity: {{t.stripOpacity}}; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); -webkit-mask-image: {{zoneMask}}; mask-image: {{zoneMask}}"></div>
+        <span style="width: 4px; flex-shrink: 0"></span>
+      </div>
     </div>
   </sc-if>
   <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
@@ -122,8 +130,8 @@ var MAPS = {
   plasma: ['#0D0887','#46039F','#7201A8','#9C179E','#BD3786','#D8576B','#ED7953','#FB9F3A','#FDCA26','#F0F921']
 };
 var THEMES = {
-  dark: { hud: 'rgba(32,32,36,0.86)', hudBorder: 'rgba(255,255,255,0.14)', hudShadow: '0 14px 40px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(0,0,0,0.6)', well: 'rgba(0,0,0,0.35)', hudTrack: 'rgba(255,255,255,0.1)', pausedBox: 'rgba(255,255,255,0.06)', sliderTrack: 'rgba(255,255,255,0.18)', tick: 'rgba(255,255,255,0.3)', centerLine: 'rgba(255,255,255,0.08)', menu: 'rgba(44,44,48,0.97)', menuDivider: 'rgba(255,255,255,0.12)', menuShadow: '0 10px 30px rgba(0,0,0,0.5)', errorText: '#FF9F0A', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', knob: '#F2F2F7', knobShadow: '0 1px 2px rgba(0,0,0,0.5)', plot: '#0E0E10', accent: '#0A84FF', accentRgb: '10,132,255', toggleBg: 'rgba(10,132,255,0.28)', toggleFg: '#64B5FF', iconBtnBg: 'rgba(255,255,255,0.1)', menuBtnBg: 'rgba(255,255,255,0.16)', rms: '#3D9BFF', peakLine: '#E5E5EA', clipText: '#FF6961', mG: '#30D158', mY: '#FFD60A', mR: '#FF453A' },
-  light: { hud: 'rgba(248,248,250,0.86)', hudBorder: 'rgba(0,0,0,0.12)', hudShadow: '0 14px 40px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.18)', well: 'rgba(0,0,0,0.05)', hudTrack: 'rgba(0,0,0,0.1)', pausedBox: 'rgba(0,0,0,0.05)', sliderTrack: 'rgba(0,0,0,0.15)', tick: 'rgba(0,0,0,0.25)', centerLine: 'rgba(0,0,0,0.08)', menu: 'rgba(250,250,252,0.97)', menuDivider: 'rgba(0,0,0,0.1)', menuShadow: '0 10px 30px rgba(0,0,0,0.2), 0 0 0 0.5px rgba(0,0,0,0.12)', errorText: '#A84800', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#5F5F64', knob: '#FFFFFF', knobShadow: '0 0 0 0.5px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.25)', plot: '#F5F5F7', accent: '#007AFF', accentRgb: '0,122,255', toggleBg: 'rgba(0,122,255,0.14)', toggleFg: '#0060DF', iconBtnBg: 'rgba(0,0,0,0.07)', menuBtnBg: 'rgba(0,0,0,0.1)', rms: '#0060DF', peakLine: '#1D1D1F', clipText: '#D70015', mG: '#34C759', mY: '#FFCC00', mR: '#FF3B30' }
+  dark: { hud: 'rgba(32,32,36,0.86)', hudBorder: 'rgba(255,255,255,0.14)', hudShadow: '0 14px 40px rgba(0,0,0,0.45), 0 0 0 0.5px rgba(0,0,0,0.6)', well: 'rgba(0,0,0,0.35)', hudTrack: 'rgba(255,255,255,0.1)', pausedBox: 'rgba(255,255,255,0.06)', sliderTrack: 'rgba(255,255,255,0.18)', tick: 'rgba(255,255,255,0.3)', centerLine: 'rgba(255,255,255,0.08)', menu: 'rgba(44,44,48,0.97)', menuDivider: 'rgba(255,255,255,0.12)', menuShadow: '0 10px 30px rgba(0,0,0,0.5)', errorText: '#FF9F0A', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', knob: '#F2F2F7', knobShadow: '0 1px 2px rgba(0,0,0,0.5)', plot: '#0E0E10', accent: '#0A84FF', accentRgb: '10,132,255', toggleBg: 'rgba(10,132,255,0.28)', toggleFg: '#64B5FF', iconBtnBg: 'rgba(255,255,255,0.1)', menuBtnBg: 'rgba(255,255,255,0.16)', rms: '#3D9BFF', peakLine: '#E5E5EA', clipText: '#FF6961', clipOn: '#FF453A', clipGlow: '0 0 4px rgba(255,69,58,0.7)', stripOpacity: 0.75, mG: '#30D158', mY: '#FFD60A', mR: '#FF453A' },
+  light: { hud: 'rgba(248,248,250,0.86)', hudBorder: 'rgba(0,0,0,0.12)', hudShadow: '0 14px 40px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.18)', well: 'rgba(0,0,0,0.05)', hudTrack: 'rgba(0,0,0,0.1)', pausedBox: 'rgba(0,0,0,0.05)', sliderTrack: 'rgba(0,0,0,0.15)', tick: 'rgba(0,0,0,0.25)', centerLine: 'rgba(0,0,0,0.08)', menu: 'rgba(250,250,252,0.97)', menuDivider: 'rgba(0,0,0,0.1)', menuShadow: '0 10px 30px rgba(0,0,0,0.2), 0 0 0 0.5px rgba(0,0,0,0.12)', errorText: '#A84800', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#5F5F64', knob: '#FFFFFF', knobShadow: '0 0 0 0.5px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.25)', plot: '#F5F5F7', accent: '#007AFF', accentRgb: '0,122,255', toggleBg: 'rgba(0,122,255,0.14)', toggleFg: '#0060DF', iconBtnBg: 'rgba(0,0,0,0.07)', menuBtnBg: 'rgba(0,0,0,0.1)', rms: '#0060DF', peakLine: '#1D1D1F', clipText: '#D70015', clipOn: '#D70015', clipGlow: '0 0 0 1.5px rgba(215,0,21,0.18)', stripOpacity: 0.9, mG: '#34C759', mY: '#FFCC00', mR: '#FF3B30' }
 };
 var MONO_RGB = '10,132,255';
 function rng(seed) { var s = seed >>> 0; return function () { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
@@ -184,6 +192,7 @@ function spectrum() {
   return { area: 'M0 100 L' + area.join(' L') + ' L1000 100 Z', peak: 'M' + peak.join(' L') };
 }
 function zone(d, t) { return d >= -6 ? t.mR : (d >= -18 ? t.mY : t.mG); }
+var ZONE_MASK = 'linear-gradient(to right, #000 calc(70% - 1px), transparent calc(70% - 1px), transparent calc(70% + 1px), #000 calc(70% + 1px), #000 calc(90% - 1px), transparent calc(90% - 1px), transparent calc(90% + 1px), #000 calc(90% + 1px))';
 function pct(d) { return Math.max(0, Math.min(100, (d + 60) / 60 * 100)); }
 
 class Component extends DCLogic {
@@ -208,7 +217,8 @@ class Component extends DCLogic {
       return {
         peakClip: 'inset(0 ' + (100 - pct(m.peak)).toFixed(2) + '% 0 0)', rmsClip: 'inset(0 ' + (100 - pct(m.rms)).toFixed(2) + '% 0 0)',
         holdLeft: pct(m.hold).toFixed(2) + '%', holdColor: zone(m.hold, t), holdText: m.hold.toFixed(1),
-        textColor: m.hold >= -0.1 ? t.clipText : t.textSoft
+        textColor: m.hold >= -0.1 ? t.clipText : t.textSoft,
+        clipBg: m.hold >= -0.1 ? t.clipOn : t.hudTrack, clipGlow: m.hold >= -0.1 ? t.clipGlow : 'none'
       };
     });
     var err = p.error ?? '';
@@ -227,7 +237,7 @@ class Component extends DCLogic {
       waveBtnBg: showWave ? t.toggleBg : 'transparent', waveBtnFg: showWave ? t.toggleFg : t.text2,
       specBtnBg: showSpec ? t.toggleBg : 'transparent', specBtnFg: showSpec ? t.toggleFg : t.text2,
       menuBtnBg: menuOpen ? t.menuBtnBg : 'transparent',
-      meters: meters,
+      meters: meters, zoneMask: ZONE_MASK,
       volTicks: [0, 17, 33, 50, 67, 83, 100].map(function (v) { return { left: v + '%' }; }),
       showWave: showWave,
       waves: this._c.waves.slice(0, ch),
