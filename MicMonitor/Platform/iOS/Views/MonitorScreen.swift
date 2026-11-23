@@ -48,10 +48,22 @@ struct MonitorScreen: View {
                 .environment(model)
         }
         .task { await model.start() }
-        // 設定アプリでマイクを許可して戻ってきたら、計測を始め直す
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active, model.permission == .denied else { return }
-            Task { await model.start() }
+            switch phase {
+            case .background:
+                // 設定で続けるようにしていなければ、計測を止める
+                model.enterBackground()
+            case .active:
+                if model.permission == .denied {
+                    // 設定アプリでマイクを許可して戻ってきたら、計測を始め直す
+                    Task { await model.start() }
+                } else {
+                    // バックグラウンドに入って止めていたら再開する
+                    Task { await model.enterForeground() }
+                }
+            default:
+                break
+            }
         }
     }
 

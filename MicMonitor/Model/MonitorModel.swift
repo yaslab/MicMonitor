@@ -18,6 +18,7 @@ final class MonitorModel {
         static let historySeconds = "historySeconds"
         static let monitorEnabled = "monitorEnabled"
         static let monitorVolume = "monitorVolume"
+        static let continuesInBackground = "continuesInBackground"
     }
 
     let deviceManager = AudioDeviceManager()
@@ -85,6 +86,14 @@ final class MonitorModel {
         }
     }
 
+    /// iOS: バックグラウンドでも計測を続けるか。既定（false）では、バックグラウンドに入ると止めて前面に戻ったら再開する。
+    var continuesInBackground: Bool {
+        didSet { defaults.set(continuesInBackground, forKey: Keys.continuesInBackground) }
+    }
+
+    /// iOS: バックグラウンドに入ったために止めているか。前面に戻ったら再開する（ユーザーの停止 `isPaused` とは別）。
+    @ObservationIgnored private var isSuspendedInBackground = false
+
     private(set) var permission: Permission = .unknown
     private(set) var activeDevice: AudioInputDevice?
     private(set) var activeFormat: CaptureFormat?
@@ -107,6 +116,7 @@ final class MonitorModel {
         selectedDeviceName = defaults.string(forKey: Keys.deviceName)
         monitorEnabled = defaults.bool(forKey: Keys.monitorEnabled)
         monitorVolume = volume
+        continuesInBackground = defaults.bool(forKey: Keys.continuesInBackground)
 
         waveform = WaveformHistory(capacity: seconds * WaveformHistory.binsPerSecond)
         spectrogram = SpectrogramHistory(capacity: seconds * SpectrogramHistory.columnsPerSecond)
@@ -204,6 +214,23 @@ final class MonitorModel {
         errorMessage = nil
         monitorErrorMessage = nil
         Self.logger.info("Paused by user")
+    }
+
+    /// iOS: バックグラウンドに入った。続ける設定でなければ計測を止める（マイクとモニター再生も止まる）。
+    /// ユーザーが止めている間（`isPaused`）は何もしない。割り込み中は止めておき、戻ったら割り込みの状態のまま始め直す。
+    func enterBackground() {
+        guard !continuesInBackground, wantsRunning else { return }
+        isSuspendedInBackground = true
+        stop()
+        Self.logger.info("Stopped in background")
+    }
+
+    /// iOS: 前面に戻った。バックグラウンドに入ったために止めていたら再開する。
+    func enterForeground() async {
+        guard isSuspendedInBackground else { return }
+        isSuspendedInBackground = false
+        Self.logger.info("Restarting after returning to foreground")
+        await start()
     }
 
     /// 止めていた計測を再開する。

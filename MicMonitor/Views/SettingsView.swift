@@ -55,6 +55,15 @@ struct SettingsView: View {
             Section {
                 ColormapDescription(colormap: colormap)
             }
+            Section {
+                Toggle("バックグラウンドでも計測を続ける", isOn: $model.continuesInBackground)
+            } header: {
+                Text("バックグラウンド")
+            } footer: {
+                Text("オフのときは、ほかのアプリに切り替えたり画面をロックしたりすると計測とモニター再生を止め、戻ったときに再開します。")
+                    .font(AppFont.footnote)
+                    .foregroundStyle(.secondary)
+            }
             #endif
         }
         .formStyle(.grouped)
