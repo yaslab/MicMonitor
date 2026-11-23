@@ -64,10 +64,7 @@ struct ScreenLayout: Equatable {
         m.panelPadding = EdgeInsets(top: 12, leading: 16, bottom: 8, trailing: 16)
         m.meterPanelPadding = EdgeInsets(top: 14, leading: 16, bottom: 10, trailing: 16)
         m.meterBarHeight = 14
-        m.meterRowHeight = 28
-        m.clipWidth = 52
-        m.clipHeight = 28
-        m.valueWidth = 78
+        m.clipCapWidth = 6
         m.pausedMeterHeight = 64
         switch kind {
         case .phone:

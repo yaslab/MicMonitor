@@ -142,26 +142,42 @@ a{color:#64D2FF}a:hover{color:#9BE3FF}
           <div style="background: {{t.panel}}; border: 1px solid {{t.line}}; border-radius: 16px; padding: 14px 16px 10px; display: flex; flex-direction: column; gap: 8px">
             <sc-if value="{{running}}" hint-placeholder-val="{{ true }}">
               <sc-for list="{{meters}}" as="m" hint-placeholder-count="2">
-                <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 52px 78px; gap: 10px; align-items: center; min-height: 28px">
-                  <span style="font-size: 13px; color: {{t.text2}}; font-variant-numeric: tabular-nums">{{m.label}}</span>
-                  <div style="position: relative; height: 14px; border-radius: 4px; background: {{t.clipOffBg}}; overflow: hidden">
-                    <div style="position: absolute; inset: 0; opacity: 0.38; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.peakClip}}"></div>
-                    <div style="position: absolute; inset: 0; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.rmsClip}}"></div>
-                    <div style="position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; left: {{m.holdLeft}}; background: {{m.holdColor}}"></div>
+                <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: end; padding-bottom: 3px">
+                  <div style="display: flex; align-items: center; height: 14px">
+                    <span style="font-size: 13px; color: {{t.text2}}; font-variant-numeric: tabular-nums">{{m.label}}</span>
                   </div>
-                  <button onClick="{{m.clear}}" aria-label="チャンネル {{m.label}} のクリップ表示を消す" style="height: 28px; padding: 0; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; background: {{m.clipBg}}; color: {{m.clipFg}}">CLIP</button>
-                  <span style="text-align: right; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 15px; font-variant-numeric: tabular-nums; color: {{t.text}}; white-space: nowrap">{{m.holdText}}<span style="color: {{t.text3}}; font-size: 12px"> dB</span></span>
+                  <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+                    <div style="display: flex; align-items: baseline; justify-content: flex-end; gap: 2px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; color: {{m.valueColor}}">{{m.holdText}}<span style="font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; font-size: 11px; color: {{t.text3}}">dB</span></div>
+                    <div style="display: flex; align-items: center; gap: 2px; height: 14px">
+                      <div style="flex: 1; position: relative; height: 14px; border-radius: 4px; background: {{t.clipOffBg}}; overflow: hidden">
+                        <div style="position: absolute; inset: 0; opacity: 0.38; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.peakClip}}"></div>
+                        <div style="position: absolute; inset: 0; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%); clip-path: {{m.rmsClip}}"></div>
+                        <div style="position: absolute; top: 0; bottom: 0; left: 70%; width: 2px; margin-left: -1px; background: {{t.panel}}"></div>
+                        <div style="position: absolute; top: 0; bottom: 0; left: 90%; width: 2px; margin-left: -1px; background: {{t.panel}}"></div>
+                        <div style="position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; left: {{m.holdLeft}}; background: {{m.holdColor}}"></div>
+                      </div>
+                      <button onClick="{{m.clear}}" aria-label="{{m.clipAria}}" title="クリップ（1.5 秒で自動的に消える。クリックですぐに消す）" style="width: 6px; height: 14px; padding: 0; border: none; border-radius: 2px; background: {{m.clipBg}}; box-shadow: {{m.clipGlow}}"></button>
+                    </div>
+                  </div>
                 </div>
               </sc-for>
-              <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr) 52px 78px; gap: 10px">
+              <div style="display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px">
                 <span></span>
-                <div style="position: relative; height: 16px">
-                  <sc-for list="{{meterTicks}}" as="k" hint-placeholder-count="6">
-                    <span style="position: absolute; top: 0; left: {{k.left}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums">{{k.label}}</span>
-                  </sc-for>
+                <div style="display: flex; gap: 2px; min-width: 0">
+                  <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+                    <div style="position: relative; height: 3px; border-radius: 1.5px; overflow: hidden">
+                      <div style="position: absolute; inset: 0; opacity: {{t.stripOpacity}}; background: linear-gradient(to right, {{t.mG}} 0%, {{t.mG}} 70%, {{t.mY}} 70%, {{t.mY}} 90%, {{t.mR}} 90%, {{t.mR}} 100%)"></div>
+                      <div style="position: absolute; top: 0; bottom: 0; left: 70%; width: 2px; margin-left: -1px; background: {{t.panel}}"></div>
+                      <div style="position: absolute; top: 0; bottom: 0; left: 90%; width: 2px; margin-left: -1px; background: {{t.panel}}"></div>
+                    </div>
+                    <div style="position: relative; height: 16px">
+                      <sc-for list="{{meterTicks}}" as="k" hint-placeholder-count="9">
+                        <span style="position: absolute; top: 0; left: {{k.left}}; transform: {{k.tf}}; font-size: 11px; color: {{t.text3}}; font-variant-numeric: tabular-nums">{{k.label}}</span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <span style="width: 6px; flex-shrink: 0"></span>
                 </div>
-                <span></span>
-                <span></span>
               </div>
             </sc-if>
             <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
@@ -326,8 +342,8 @@ var MAPS = {
   plasma: ['#0D0887','#46039F','#7201A8','#9C179E','#BD3786','#D8576B','#ED7953','#FB9F3A','#FDCA26','#F0F921']
 };
 var THEMES = {
-  dark: { bg: '#000000', panel: '#161618', line: '#2A2A2E', sep: '#38383A', plot: '#0E0E10', grid: '#1F1F23', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', text3: '#8E8E93', track: '#3A3A3C', tick: '#636366', knob: '#FFFFFF', glass: 'rgba(120,120,128,0.24)', glassBorder: 'rgba(255,255,255,0.10)', switchOff: '#39393D', accent: '#0A84FF', accentRgb: '10,132,255', rms: '#3D9BFF', peakLine: '#E5E5EA', warn: '#FFD60A', danger: '#FF6961', mG: '#30D158', mY: '#FFD60A', mR: '#FF453A', clipOffBg: '#2C2C2E', clipOffFg: '#98989D' },
-  light: { bg: '#F2F2F7', panel: '#FFFFFF', line: '#DADADF', sep: '#E5E5EA', plot: '#F5F5F7', grid: '#E6E6EB', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#4F4F54', text3: '#636366', track: '#D1D1D6', tick: '#AEAEB2', knob: '#FFFFFF', glass: 'rgba(255,255,255,0.78)', glassBorder: 'rgba(0,0,0,0.08)', switchOff: '#E3E3E8', accent: '#007AFF', accentRgb: '0,122,255', rms: '#0060DF', peakLine: '#1D1D1F', warn: '#7A5200', danger: '#D70015', mG: '#34C759', mY: '#FFCC00', mR: '#FF3B30', clipOffBg: '#E9E9EB', clipOffFg: '#636366' }
+  dark: { bg: '#000000', panel: '#161618', line: '#2A2A2E', sep: '#38383A', plot: '#0E0E10', grid: '#1F1F23', text: '#F2F2F7', textSoft: '#D1D1D6', text2: '#A1A1A8', text3: '#8E8E93', track: '#3A3A3C', tick: '#636366', knob: '#FFFFFF', glass: 'rgba(120,120,128,0.24)', glassBorder: 'rgba(255,255,255,0.10)', switchOff: '#39393D', accent: '#0A84FF', accentRgb: '10,132,255', rms: '#3D9BFF', peakLine: '#E5E5EA', warn: '#FFD60A', danger: '#FF6961', mG: '#30D158', mY: '#FFD60A', mR: '#FF453A', clipOffBg: '#2C2C2E', clipOff: '#3A3A3C', clipOn: '#FF453A', clipGlow: '0 0 6px rgba(255,69,58,0.7)', stripOpacity: 0.75 },
+  light: { bg: '#F2F2F7', panel: '#FFFFFF', line: '#DADADF', sep: '#E5E5EA', plot: '#F5F5F7', grid: '#E6E6EB', text: '#1D1D1F', textSoft: '#3A3A3C', text2: '#4F4F54', text3: '#636366', track: '#D1D1D6', tick: '#AEAEB2', knob: '#FFFFFF', glass: 'rgba(255,255,255,0.78)', glassBorder: 'rgba(0,0,0,0.08)', switchOff: '#E3E3E8', accent: '#007AFF', accentRgb: '0,122,255', rms: '#0060DF', peakLine: '#1D1D1F', warn: '#7A5200', danger: '#D70015', mG: '#34C759', mY: '#FFCC00', mR: '#FF3B30', clipOffBg: '#E9E9EB', clipOff: '#D1D1D6', clipOn: '#D70015', clipGlow: '0 0 0 2px rgba(215,0,21,0.18)', stripOpacity: 0.9 }
 };
 var LAYOUTS = {
   phone: { w: '402px', h: '1320px', deniedH: '874px', padX: '16px', barPad: '0 16px', gap: '20px', dir: 'column', leftW: '100%', rightW: '100%', two: false, large: true, waveH: '64px', sgH: '120px', spH: '140px', spPausedH: '160px', cols: 150, narrow: true },
@@ -443,7 +459,9 @@ class Component extends DCLogic {
         rmsClip: 'inset(0 ' + (100 - pct(m.rms)).toFixed(2) + '% 0 0)',
         holdLeft: pct(m.hold).toFixed(2) + '%', holdColor: zone(m.hold, t),
         holdText: m.hold.toFixed(1),
-        clipBg: lit ? '#D70015' : t.clipOffBg, clipFg: lit ? '#FFFFFF' : t.clipOffFg,
+        valueColor: lit ? t.danger : t.text,
+        clipBg: lit ? t.clipOn : t.clipOff, clipGlow: lit ? t.clipGlow : 'none',
+        clipAria: lit ? 'チャンネル ' + m.label + ' はクリップしました。クリックで消す' : 'チャンネル ' + m.label + ' のクリップ表示（消灯）',
         clear: function () { var c = Object.assign({}, (self.state || {}).cleared); c[i] = true; self.setState({ cleared: c }); }
       };
     });

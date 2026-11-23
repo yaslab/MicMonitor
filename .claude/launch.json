@@ -4,8 +4,26 @@
     {
       "name": "ui-design",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8000", "--directory", "docs/ui/source"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8000",
+        "--directory",
+        "docs/ui/source"
+      ],
       "port": 8000
+    },
+    {
+      "name": "ui-design-ios",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8001",
+        "--directory",
+        "docs/ui/ios/source"
+      ],
+      "port": 8001
     }
   ]
 }

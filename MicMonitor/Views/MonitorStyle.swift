@@ -13,12 +13,10 @@ enum AppFont {
     static let panelNote = Font.footnote
     /// チャンネル番号。Mac 11pt / iOS 13pt。
     static let channelLabel = Font.subheadline.monospacedDigit()
-    /// メーターの数値。Mac 12pt / iOS 15pt。
-    static let meterValue = Font.callout.monospaced()
-    /// 数値の単位（dB）。Mac 10pt / iOS 12pt。
+    /// メーターの右肩の数値（ピークホールド）。Mac 11pt / iOS 13pt。
+    static let meterValue = Font.subheadline.monospaced()
+    /// 数値の単位（dB）。Mac 10pt / iOS 11pt。
     static let meterUnit = Font.footnote
-    /// 「CLIP」。Mac 10pt / iOS 12pt。
-    static let clip = Font.footnote.weight(.bold)
     /// グラフの軸の文字。Mac 10pt / iOS 11pt。
     static let axis = Font.footnote.monospacedDigit()
     /// 項目名やフォーマットなどの補助の文字（「入力」「48 kHz · 2 ch」「62%」）。Mac 12pt / iOS 15pt。
@@ -32,9 +30,8 @@ enum AppFont {
     static let panelCaption = Font.caption
     static let panelNote = Font.caption
     static let channelLabel = Font.footnote.monospacedDigit()
-    static let meterValue = Font.subheadline.monospaced()
-    static let meterUnit = Font.caption
-    static let clip = Font.caption.weight(.bold)
+    static let meterValue = Font.footnote.monospaced()
+    static let meterUnit = Font.caption2
     static let axis = Font.caption2.monospacedDigit()
     static let secondary = Font.subheadline
     static let footnote = Font.footnote
@@ -57,10 +54,8 @@ struct MonitorMetrics: Equatable {
     var panelPadding = EdgeInsets(top: 10, leading: 14, bottom: 6, trailing: 14)
     var meterPanelPadding = EdgeInsets(top: 12, leading: 14, bottom: 8, trailing: 14)
     var meterBarHeight: CGFloat = 12
-    var meterRowHeight: CGFloat = 18
-    var clipWidth: CGFloat = 44
-    var clipHeight: CGFloat = 16
-    var valueWidth: CGFloat = 70
+    /// メーターの右端のクリップ表示の幅。
+    var clipCapWidth: CGFloat = 5
     /// 波形の 1 段の最小の高さ（余れば伸びる）。
     var waveformHeight: CGFloat = 54
     var spectrogramHeight: CGFloat = 104

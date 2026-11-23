@@ -92,8 +92,11 @@ source/canvas.json は、Claude の Artifact「MicMonitor 画面デザイン」�
 | メーター 黄（〜-6 dB） | mY | #FFD60A | #FFCC00 |
 | メーター 赤（-6 dB〜） | mR | #FF453A | #FF3B30 |
 | メーターの Peak | — | 上の色の 38% | 上の色の 38% |
-| CLIP 点灯 | — | #D70015 に白文字 | #D70015 に白文字 |
-| CLIP 消灯 | clipOffBg / clipOffFg | #2C2C2E / #98989D | #E3E3E5 / #636366 |
+| メーターのゾーンの区切り | panel | 欄の背景色で幅 2pt（-18・-6 dB） | 同左 |
+| 目盛りの上の色の帯 | mG / mY / mR | 上の色の 75% | 上の色の 90% |
+| クリップ表示 点灯 | clipOn / clipGlow | #FF453A（周りに同色の光） | #D70015（周りに同色の 18% の輪） |
+| クリップ表示 消灯 | clipOff | #3A3A3C | #D1D1D6 |
+| クリップ時の右肩の数値 | danger | #FF6961 | #D70015 |
 | 波形 Peak | accent | アクセント 40% | アクセント 40% |
 | 波形 RMS | rms | #3D9BFF | #0060DF |
 | スペクトル 塗り | accent | アクセント 45% | アクセント 45% |
